@@ -1,0 +1,9 @@
+<use name="BLT_II/BLTAnalysis"/>
+<use name="root"/>
+<flags CXXFLAGS="-g -Wall -Wno-strict-aliasing"/>
+<bin file="AnalysisTemplate.cc"     name="AnalysisTemplate"></bin>
+<bin file="wwAnalysis.cc"						name="wwAnalysis_II"></bin>
+<bin file="electronTest.cc"					name="electronTest"></bin>
+<bin file="muonTest.cc"					    name="muonTest"></bin>
+<bin file="fiducialSelection.cc"		name="fiducialSelection"></bin>
+<bin file="ZAnalysis.cc"		        name="ZAnalysis"></bin>

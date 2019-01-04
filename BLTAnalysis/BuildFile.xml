@@ -1,0 +1,9 @@
+<use name="BaconAna/DataFormats"/>
+<use name="BaconAna/Utils"/>
+<use name="root"/>
+<use name="rootcore"/>
+<use name="rootrflx"/>
+<flags CXXFLAGS="-g -Wall -Wno-strict-aliasing"/>
+<export>
+  <lib   name="1"/>
+</export>
