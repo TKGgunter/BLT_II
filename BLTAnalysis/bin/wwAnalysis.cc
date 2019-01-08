@@ -314,6 +314,10 @@ TH1F tot_nEvents;
 TH1F nEvents ;
 TH1F nPV_plot;
 
+std::vector<std::string> double_trigger_arr = { };
+std::vector<std::string> single_trigger_arr = { "HLT_IsoMu24_v*",
+                                            "HLT_IsoTkMu24_v*",
+                                            "HLT_Ele27_WPTight_Gsf_v*"};
 std::vector<std::string> trigger_vector = { "HLT_IsoMu24_v*",
                                             "HLT_IsoTkMu24_v*",
                                             //"HLT_IsoMu20_v*",
@@ -392,10 +396,11 @@ float jet_scale_pt_variation(TLorentzVector jet, float up_down){
     std::vector<float> etalist = {-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0};
     std::vector<float> ptlist  = {30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 350, 400, 10400.0};
     float variation = 0.0;
+
     for( int eta_bin = 1; eta_bin < int(etalist.size()); eta_bin++){
         if ( jet.Eta() > etalist[eta_bin - 1] && jet.Eta() <= etalist[eta_bin] ){
-            for( int pt_bin = 1; pt_bin < int(ptlist.size()); pt_bin++){
 
+            for( int pt_bin = 1; pt_bin < int(ptlist.size()); pt_bin++){
                 if ( (jet.Pt() > ptlist[pt_bin - 1] && jet.Pt() <= ptlist[pt_bin]) || (jet.Pt() < ptlist[pt_bin] && pt_bin == 1) ){
                     int bin = (eta_bin - 1) + ((pt_bin-1) * ncolumns);
                     float sf = bins[bin];
@@ -403,6 +408,7 @@ float jet_scale_pt_variation(TLorentzVector jet, float up_down){
                     break;
                 }
             }
+
         }
     }
     return variation;
@@ -969,6 +975,97 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
             MUON_ELECTRON,
             DEFAULT_ME
         };
+
+				{//Trigger stuffs Jan 8, 2018
+						//Get the total set of triggers passed
+						//to do this we need to check if we have the trigger bits 
+						//and if the proper leptons have fired
+						struct trig_info{
+								FUTURE_TRIGGER_COMB trigger_flag;
+								int leg1;
+								int leg2;
+						};
+						std::vector<trig_info> good_triggers;
+
+        		if (fInfo->triggerBits != 0){
+
+								FOR_IN(it, single_trigger_arr){
+										if( triggerSelector->pass(*it, fInfo->triggerBits) == false ) continue;
+										
+										//TODO 
+										//Check to make sure enumerate works properly
+									  ENUMERATE_IN(i, lepton_it, leptonList){
+
+												if( triggerSelector->passObj(*it, 1, lepton_it->hltMatchBits)){
+														if(lepton_it->type_flag == MUON){
+																good_triggers.push_back({SINGLE_MUON, i, -999});
+														}
+														if(lepton_it->type_flag == ELECTRON){
+																good_triggers.push_back({SINGLE_ELECTRON, i, -999});
+														}	
+												}	
+										}	
+
+								}
+								FOR_IN(it, double_trigger_arr){
+										if( triggerSelector->pass(*it, fInfo->triggerBits) == false ) continue;
+										
+										//TODO 
+										//Check to make sure enumerate works properly
+									  ENUMERATE_IN(i, lepton_it, leptonList){
+									  ENUMERATE_IN(j, lepton_jt, leptonList){
+												if (i == j) continue;
+
+												if( triggerSelector->passObj(*it, 1, lepton_it->hltMatchBits) && triggerSelector->passObj(*it, 2, lepton_jt->hltMatchBits) ){
+														if(lepton_it->type_flag == lepton_jt->type_flag){
+
+																if (lepton_it->type_flag == MUON) good_triggers.push_back({DOUBLE_MUON, i, j});
+
+																else if (lepton_it->type_flag == ELECTRON) good_triggers.push_back({DOUBLE_ELECTRON, i, j});
+
+														}
+														else{
+																good_triggers.push_back({MUON_ELECTRON, i, j});
+														}	
+												}	
+
+										}	
+										}	
+								}
+						}
+
+					// There was some special thing to take into account when it comes to applying the trigger weights. I need to check nates code for the answers. 
+						std::vector<float> triggerweights_arr;
+						FOR_IN(it, good_triggers){
+								if (it->trigger_flag == DOUBLE_ELECTRON){
+                		//auto triggerweight = weights.GetDiElectronTriggerEff( leptonList[it->leg1].p4(), leptonList[it->leg2].p4() );
+										//triggerweights_arr.push_back(triggerweight.nominal);
+								}
+								else if (it->trigger_flag == DOUBLE_MUON){
+                		//auto triggerweight = weights.GetDiMuonTriggerEff( leptonList[it->leg1].p4(), leptonList[it->leg2].p4() );
+										//triggerweights_arr.push_back(triggerweight.nominal);
+								}
+								else if (it->trigger_flag == MUON_ELECTRON){
+                		//auto triggerweight = weights.GetElMuonTriggerEff( leptonList[it->leg1].p4(), leptonList[it->leg2].p4() );
+										//triggerweights_arr.push_back(triggerweight.nominal);
+								}
+								if      (it->trigger_flag == SINGLE_MUON){
+                		auto triggerweight = weights.GetMuonTriggerEff( "HLT_IsoMu24_v*", leptonList[it->leg1].p4());
+										triggerweights_arr.push_back(triggerweight.nominal);
+								}
+								else if (it->trigger_flag == SINGLE_ELECTRON){
+                		auto triggerweight = weights.GetElectronTriggerEff( leptonList[it->leg1].p4());
+										triggerweights_arr.push_back(triggerweight.nominal);
+								}
+								ELSE_PRINT("Housten we have a problem in the new trigger section has a good trigger with no actual trigger info set.");
+						}
+						//compute final trigger weight
+						FOR_IN( it, triggerweights_arr){
+						}
+				}
+				
+
+
         FUTURE_TRIGGER_COMB FUTURE_trigger = DEFAULT_ME;
         FUTURE_TRIGGER_COMB FUTURE_trigger_1 = DEFAULT_ME;
         FUTURE_TRIGGER_COMB FUTURE_trigger_2 = DEFAULT_ME;
