@@ -7,6 +7,7 @@
 #include "BLT_II/BLTAnalysis/interface/WeightUtils.h"
 #include "BLT_II/BLTAnalysis/interface/RoccoR.h"
 #include "BLT_II/BLTAnalysis/src/SDF.cc"
+#include "BLT_II/BLTAnalysis/src/CSVReader.cc"
 
 //C++ libraries
 #include <algorithm>    // std::find std::max
@@ -433,7 +434,17 @@ DemoAnalyzer::~DemoAnalyzer()
 
 void DemoAnalyzer::Begin(TTree *tree)
 {
+		
+		///////////////////
     const std::string cmssw_base = getenv("CMSSW_BASE");
+		///////////////////
+		/*TODO
+		CSV csv;
+		read_csv( cmssw_base + "/src/temp.csv", &csv);
+		printf("PRINT CSV\n");
+		print_csv(&csv);
+		exit(0);
+		*/
 
 
     printf("Parsing Commandline Options\n");
