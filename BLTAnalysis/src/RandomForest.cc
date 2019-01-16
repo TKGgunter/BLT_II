@@ -1,0 +1,248 @@
+#include <stdio.h>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <fstream>
+
+struct Tree{
+		int max_depth;
+		int n_nodes;
+		std::vector<float> threshold;	
+		std::vector<float> value0;
+		std::vector<float> value1;
+		std::vector<int>   child_right;
+		std::vector<int>   child_left;
+		std::vector<int> 	feature;	//NEW TODO
+		
+};
+
+struct Forest{
+		int n_trees;
+		std::vector<Tree> trees;	
+		std::vector<std::string> features;
+};
+
+float score_forest(std::vector<float> arr, Forest* f){
+		 	float rt = 1.0;	
+			for (int i = 0 ; i < f->n_trees; i++){
+
+					Tree* tree = &(f->trees[0]);
+					int cursor = 0;
+
+					while (true){
+							if ( cursor < 0 ) break;
+							if ( tree->threshold[cursor] < 0 ){
+									//TODO
+									//Do we need to do something with the score preds ????
+									break;
+							}
+
+
+							int c_feature = tree->feature[cursor];
+							if ( arr[c_feature] > threshold)	{
+									cursor = tree->child_right[cursor];
+							} else{
+									cursor = tree->child_left[cursor];
+							}
+								
+							break;//TODO TEMP
+					}
+			}
+}
+
+
+
+
+void print_tree(Tree* tree){
+		printf("Tree: \n");
+		printf("max depth: %d \n", tree->max_depth);
+		printf("number of nodes: %d \n", tree->n_nodes);
+	
+		if ( tree->threshold.size() != tree->value0.size()){
+				printf("This tree has a problem the length of the threshold and value0 arrays are not equal.");
+		}
+		for (int i = 0; i != 5; i++ ){
+				if (i == 0 )printf("Threshold: ");
+				printf("%f ", tree->threshold[i]);
+		}	
+		for (int i = 0; i != 5; i++ ){
+				if (i == 0 )printf("Value0: ");
+				printf("%f ", tree->value0[i]);
+		}	
+		for (int i = 0; i != 5; i++ ){
+				if (i == 0 )printf("Value1: ");
+				printf("%f ", tree->value1[i]);
+		}	
+		for (int i = 0; i != 5; i++ ){
+				if (i == 0 )printf("child right: ");
+				printf("%d ", tree->child_right[i]);
+		}	
+		for (int i = 0; i != 5; i++ ){
+				if (i == 0 )printf("child left: ");
+				printf("%d ", tree->child_left[i]);
+		}	
+		
+}
+
+void print_forest(Forest* forest){
+		
+		printf("Forest\nNumber of trees: %d == %d\n", forest->n_trees, (int)forest->trees.size());
+		printf("Features: ");
+		for(auto f = forest->features.begin(); f != forest->features.end(); f++){
+				printf( " %s ", f->c_str());
+		}
+
+		int i = 0;
+		for(auto t = forest->trees.begin(); t != forest->trees.end(); t++){
+				printf( "Tree number: %d", i);
+				print_tree(&(*t));
+				i++;
+		}
+			
+}
+
+
+std::vector<std::string> members_forest= {"n_trees", "trees", "features"};
+std::vector<std::string> members_tree  = {"max_depth", "n_nodes", "child_left", "child_right", "threshold", "value0", "value1"};
+
+
+void load_tree( std::string filename, Tree* tree){
+		std::fstream file;
+		file.open(filename.c_str(), std::fstream::in);
+
+		if(!file.good()){
+				printf("Tree reader could not open file: %s!", filename.c_str());
+				return;
+		}
+
+		
+		std::string line, text;
+		while(!file.eof()) {
+				std::getline(file, line);
+				text.append(line+"\n");
+				line.clear();
+		}
+		file.close();
+		
+		tree->max_depth = 0;
+		tree->n_nodes = 0;
+		tree->threshold.clear();
+		tree->value0.clear();
+		tree->value1.clear();
+		tree->child_left.clear();
+		tree->child_right.clear();
+
+		std::string temp_buffer;
+		int cursor = -1;
+		for(auto it = text.begin(); it != text.end(); it++){
+				if (*it == ':' && temp_buffer.length() > 0) { 
+						int k = 0;
+						for(auto kt = members_tree.begin(); kt != members_tree.end(); kt++){
+								if (strcmp(temp_buffer.c_str(), kt->c_str()) == 0){
+										temp_buffer.clear();
+										cursor = k;
+										k++; 
+								}
+						}
+						continue;
+				}
+				if ((*it == ' ' || *it == '\n') && cursor != -1 && temp_buffer.length() > 0) { 
+						if (*it == '\n') { cursor = -1; }
+
+						if(members_tree[cursor] == "max_depth"){
+								tree->max_depth = (int)atoi(temp_buffer.c_str());
+						}
+						else if(members_tree[cursor] == "n_nodes"){
+								tree->n_nodes = (int)atoi(temp_buffer.c_str());
+						}
+						else if(members_tree[cursor] == "threshold")	{
+								tree->threshold.push_back((float)atof(temp_buffer.c_str()));
+						}
+						else if(members_tree[cursor] == "value0")	{
+								tree->value0.push_back((float)atof(temp_buffer.c_str()));
+						}
+						else if(members_tree[cursor] == "value1")	{
+								tree->value1.push_back((float)atof(temp_buffer.c_str()));
+						}
+						else if(members_tree[cursor] == "child_left")	{
+								tree->child_left.push_back((int)atoi(temp_buffer.c_str()));
+						}
+						else if(members_tree[cursor] == "child_right")	{
+								tree->child_right.push_back((int)atoi(temp_buffer.c_str()));
+						}
+						temp_buffer.clear();
+						continue;
+				}
+				if(*it == ' ' || *it == '\n')	{ continue;}
+				temp_buffer += *it;
+		}
+}
+
+void load_forest( std::string path, Forest* forest){
+		std::fstream file;
+		std::string filename = path + "/rf.txt";
+		file.open(filename.c_str(), std::fstream::in);
+
+		if(!file.good()){
+				printf("Forest reader could not open file: %s!", filename.c_str());
+				return;
+		}
+
+		
+		std::string line, text;
+		while(!file.eof()) {
+				std::getline(file, line);
+				text.append(line+"\n");
+				line.clear();
+		}
+		file.close();
+		
+		forest->n_trees = 0;
+		forest->trees.clear();
+		forest->features.clear();
+
+		std::string temp_buffer;
+		int cursor = -1;
+		for(auto it = text.begin(); it != text.end(); it++){
+				if (*it == ':' && temp_buffer.length() > 0) { 
+						int k = 0;
+						for(auto kt = members_forest.begin(); kt != members_forest.end(); kt++){
+								if (strcmp(temp_buffer.c_str(), kt->c_str()) == 0){
+										temp_buffer.clear();
+										cursor = k;
+										k++; 
+								}
+						}
+						continue;
+				}
+				if ((*it == ' ' || *it == '\n') && cursor != -1 && temp_buffer.length() > 0) { 
+						if (*it == '\n') { cursor = -1; }
+
+						if(members_forest[cursor] == "n_trees"){
+								forest->n_trees = (int)atoi(temp_buffer.c_str());
+						}
+						//TODO
+						//make sure the features list is written shuch that it conforms to this spec.
+						// 		STRING SPACE STING newline 
+						//with no quotation marks
+						else if(members_forest[cursor] == "features"){
+								forest->features.push_back( temp_buffer );
+						}
+						temp_buffer.clear();
+						continue;
+				}
+				if(*it == ' ' || *it == '\n')	{ continue;}
+				temp_buffer += *it;
+		}
+
+		for(int i = 0; i < forest->n_trees; i++){
+				Tree tree;
+				filename = path + "tree" + std::to_string(i) + ".txt";
+				load_tree(filename, &tree);
+				forest->trees.push_back(tree);
+		}
+}
+
+
+
+

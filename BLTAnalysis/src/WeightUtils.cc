@@ -171,6 +171,19 @@ WeightUtils::WeightUtils() //std::string dataPeriod, std::string selection, bool
 				_btagreader.load(_btag_calibrator, BTagEntry::FLAV_C,		"comb");
 				_btagreader.load(_btag_calibrator, BTagEntry::FLAV_UDSG,"incl");
 		}
+
+		if (false) {
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_dimuon_lowleg);
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_dimuon_highleg);
+
+				/*
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_dielectron_lowleg);
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_dielectron_highleg);
+
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_muon_electron_lowleg);
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_muon_electron_highleg);
+				*/
+		}
 }
 
 
@@ -782,6 +795,94 @@ WeightAndSigma WeightUtils::GetBJetWeight(float pt, float eta, int flavor, float
 		return {weight, weight_up, weight_down};
 }
 
+
+//TODO
+//check to see if this stuff works
+//NEED TO AS LEGS 
+/*
+WeightAndSigma  GetDiElectronTrig(TLorentzVector p4){
+		_trigger_dielectron;
+		float pt = p4.Pt()
+		float eta = p4.Eta()
+
+		auto ptmin  =  get_column(&_trigger_dimuon, "ptmin");
+		auto ptmax  =  get_column(&_trigger_dimuon, "ptmax");
+		auto etamin =  get_column(&_trigger_dimuon, "etamin");
+		auto etamax =  get_column(&_trigger_dimuon, "etamax");
+
+		auto eff    =  get_column(&_trigger_dielectron, "eff");
+		auto sigma  =  get_column(&_trigger_dielectron, "sigma");
+		
+		WeightAndSigma w;
+		for (int i = 0; i < _trigger_dielectron.nentries; i++) {
+				if( ptmin[i]  < pt  && ptmax[i]  >= pt && 
+						etamin[i] < eta && etamax[i] >= eta  ){
+						
+						w.nominal = eff[i];
+						w.up 			= sigma[i];
+						w.low 		= sigma[i];
+				}
+		}
+
+		return w;
+}
+WeightAndSigma  GetDiMuonTrig(TLorentzVector p4){
+		_trigger_dimuon;
+		float pt = p4.Pt()
+		float eta = p4.Eta()
+
+		auto ptmin  =  get_column(&_trigger_dielectron, "ptmin");
+		auto ptmax  =  get_column(&_trigger_dielectron, "ptmax");
+		auto etamin =  get_column(&_trigger_dielectron, "etamin");
+		auto etamax =  get_column(&_trigger_dielectron, "etamax");
+
+		auto eff       =  get_column(&_trigger_dielectron, "eff");
+		auto deff_high =  get_column(&_trigger_dielectron, "deff_high");
+		auto deff_low  =  get_column(&_trigger_dielectron, "deff_low");
+
+		
+		WeightAndSigma w;
+		for (int i = 0; i < _trigger_dielectron.nentries; i++) {
+				if( ptmin[i]  < pt  && ptmax[i]  >= pt && 
+						etamin[i] < eta && etamax[i] >= eta  ){
+						
+						w.nominal = eff[i];
+						w.up 			= deff_high[i];
+						w.low 		= deff_low[i];
+				}
+		}
+
+
+		WeightAndSigma w;
+		return w;
+}
+WeightAndSigma  GetMuonElectronTrig(TLorentzVector p4){
+		_trigger_muonelectron;
+		float pt = p4.Pt()
+		float eta = p4.Eta()
+
+		auto ptmin  =  get_column(&_trigger_muonelectron, "ptmin");
+		auto ptmax  =  get_column(&_trigger_muonelectron, "ptmax");
+		auto etamin =  get_column(&_trigger_muonelectron, "etamin");
+		auto etamax =  get_column(&_trigger_muonelectron, "etamax");
+
+		auto eff    =  get_column(&_trigger_dielectron, "eff");
+		auto sigma  =  get_column(&_trigger_dielectron, "sigma");
+
+		WeightAndSigma w;
+		for (int i = 0; i < _trigger_dielectron.nentries; i++) {
+				if( ptmin[i]  < pt  && ptmax[i]  >= pt && 
+						etamin[i] < eta && etamax[i] >= eta  ){
+						
+						w.nominal = eff[i];
+						w.up 			= sigma[i];
+						w.low 		= sigma[i];
+				}
+		}
+
+		return w;
+}
+*/
  
 //NOTE
 //Stolen from https://root.cern.ch/doc/master/TH2_8cxx_source.html#l01328

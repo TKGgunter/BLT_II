@@ -23,6 +23,7 @@
 
 // Calibration libraries
 #include "BTagCalibrationStandalone.h"
+#include "CSVReader.hh"
 
 
 
@@ -58,6 +59,10 @@ class WeightUtils {
 
 				WeightAndSigma GetBJetWeight(float pt, float eta, int flavor, float csv_score, float csv_cut);
 
+				//Dilepnton weights
+        WeightAndSigma  GetDiElectronTrig(TLorentzVector) const;
+        WeightAndSigma  GetDiMuonTrig(TLorentzVector) const;
+        WeightAndSigma  GetMuonElectronTrig(TLorentzVector) const;
 
 
         //input parameters
@@ -90,6 +95,17 @@ class WeightUtils {
 				TH2D _elSF_id_iso;
 				TH2D _elSF_reco;
 				TH2D _elSF_trigger; //https://twiki.cern.ch/twiki/pub/CMS/EgammaIDRecipesRun2/2017Feb-A-Popov_TriggerSF_Run2016All_v1.root
+
+				//ADD up and down
+				CSV _trigger_dimuon_highleg;
+				CSV _trigger_dimuon_lowleg;
+
+				CSV _trigger_dielection_highleg;
+				CSV _trigger_dielection_lowleg;
+
+				CSV _trigger_muonelectrion_highleg;
+				CSV _trigger_muonelectrion_lowleg;
+
 };
 
 #endif

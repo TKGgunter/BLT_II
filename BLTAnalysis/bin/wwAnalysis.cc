@@ -7,7 +7,8 @@
 #include "BLT_II/BLTAnalysis/interface/WeightUtils.h"
 #include "BLT_II/BLTAnalysis/interface/RoccoR.h"
 #include "BLT_II/BLTAnalysis/src/SDF.cc"
-#include "BLT_II/BLTAnalysis/src/CSVReader.cc"
+#include "BLT_II/BLTAnalysis/interface/CSVReader.hh"
+#include "BLT_II/BLTAnalysis/src/RandomForest.cc"
 
 //C++ libraries
 #include <algorithm>    // std::find std::max
@@ -355,6 +356,13 @@ WeightUtils weights;
 RoccoR      muonCorr;
 
 
+
+Forest TTforest;
+Forest DYforest;
+		
+
+
+
 //////////////////
 //    Jet resolution 
 //////////////////
@@ -437,14 +445,17 @@ void DemoAnalyzer::Begin(TTree *tree)
 		
 		///////////////////
     const std::string cmssw_base = getenv("CMSSW_BASE");
+
+		//TEMP TODO
+		//GET RID OF THIS THIS IS TEMP
+		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/", &TTforest);
+		printf("Top forest\n");
+		print_forest(&TTforest);	
+
+		printf("Drell Yan forest\n");
+		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/", &DYforest);
+		print_forest(&DYforest);	
 		///////////////////
-		/*TODO
-		CSV csv;
-		read_csv( cmssw_base + "/src/temp.csv", &csv);
-		printf("PRINT CSV\n");
-		print_csv(&csv);
-		exit(0);
-		*/
 
 
     printf("Parsing Commandline Options\n");
@@ -481,6 +492,7 @@ void DemoAnalyzer::Begin(TTree *tree)
     //Parse variable string and creates a map for the variables you want.
     //variables designated 'float' will be put in float map
     //variables designated 'int' will be put in int map
+    //variables designated 'string' will be put in string map
     std::string buffer_var  = "";
     std::string buffer_type = "";
     PARSER_FLAG pflag = VAR;

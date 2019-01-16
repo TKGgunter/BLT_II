@@ -1,3 +1,7 @@
+#ifndef CSVREADER_HH
+#define CSVREADER_HH
+
+
 #include <string>
 #include <vector>
 #include <stdio.h>
@@ -9,6 +13,16 @@ struct CSV{
 		int nfeatures;	
 		int nentries;	
 };
+
+std::vector<float>* get_column(CSV* csv, std::string column){
+		int i = 0;
+		for( auto it = csv->column_names.begin(); it != csv->column_names.end(); it++){
+				if ( *it == column ) return &(csv->datas[i]);
+				i++;
+		}
+		printf("get column failed... we need a Option enum");
+		return &(csv->datas[0]);
+}
 
 void print_csv(CSV* csv){
 
@@ -104,7 +118,7 @@ void read_csv( std::string filename, CSV* csv){
 
 
 
-
+#endif
 
 
 
