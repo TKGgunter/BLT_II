@@ -97,6 +97,7 @@ class WeightUtils {
 				TH2D _elSF_trigger; //https://twiki.cern.ch/twiki/pub/CMS/EgammaIDRecipesRun2/2017Feb-A-Popov_TriggerSF_Run2016All_v1.root
 
 				//ADD up and down
+				/*
 				CSV _trigger_dimuon_highleg;
 				CSV _trigger_dimuon_lowleg;
 
@@ -105,7 +106,7 @@ class WeightUtils {
 
 				CSV _trigger_muonelectrion_highleg;
 				CSV _trigger_muonelectrion_lowleg;
-
+				*/
 };
 
 #endif

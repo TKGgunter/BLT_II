@@ -226,8 +226,6 @@ std::string variables = "lep1_pt float;"
 
 
 
-//TODO
-//Add something that accounts for total events in orig file
 struct notes{
     std::vector<std::string> names;
     std::vector<int> counts;
@@ -360,6 +358,49 @@ RoccoR      muonCorr;
 Forest TTforest;
 Forest DYforest;
 		
+struct RFScore{
+		float dy;
+		float tt;
+};
+
+RFScore get_rf_score(){
+		RFScore s = {0.0,0.0};
+		{//TTforest
+				std::vector<float> arr;
+				FOR_IN(it, TTforest.features){
+						if ( vars_int.count(*it) ){
+								arr.push_back((float) *get_value(&vars_int, *it));
+						}
+						else if ( vars_float.count(*it) ){
+								arr.push_back(*get_value(&vars_float, *it));
+						}
+						else {
+								printf("\e[31mKey %s not found\e[0m\n", (*it).c_str());
+								exit(EXIT_FAILURE);
+						}
+				}
+				s.tt = score_forest( arr, &TTforest);
+					
+		}
+
+		{//DYforest
+				std::vector<float> arr;
+				FOR_IN(it, TTforest.features){
+						if ( vars_int.count(*it) ){
+								arr.push_back((float) *get_value(&vars_int, *it));
+						}
+						else if ( vars_float.count(*it) ){
+								arr.push_back(*get_value(&vars_float, *it));
+						}
+						else {
+								printf("\e[31mKey %s not found\e[0m\n", (*it).c_str());
+								exit(EXIT_FAILURE);
+						}
+				}
+				s.dy = score_forest( arr, &DYforest);
+		}
+		return s;
+};
 
 
 
@@ -446,15 +487,7 @@ void DemoAnalyzer::Begin(TTree *tree)
 		///////////////////
     const std::string cmssw_base = getenv("CMSSW_BASE");
 
-		//TEMP TODO
-		//GET RID OF THIS THIS IS TEMP
-		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/", &TTforest);
-		printf("Top forest\n");
-		print_forest(&TTforest);	
-
-		printf("Drell Yan forest\n");
-		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/", &DYforest);
-		print_forest(&DYforest);	
+		
 		///////////////////
 
 
@@ -607,6 +640,15 @@ void DemoAnalyzer::Begin(TTree *tree)
     process_decay = options.at(0);  
     process = options.at(1) ; 
 
+		//Load Random Forest
+		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/rfTT", &TTforest);
+		printf("Top forest\n");
+		print_forest(&TTforest);	
+
+		printf("Drell Yan forest\n");
+		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/rfDY", &DYforest);
+		print_forest(&DYforest);	
+		printf("EXIT\n");
 
     /////////////////////////
     //PROGRESS BAR Start Up
@@ -1551,6 +1593,10 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     
     update_buffers(&TKGfile);
     outTree->Fill();
+		{// Random forest scores
+				auto _temp = get_rf_score();
+				printf("%f %f\n", _temp.dy, _temp.tt);
+		}
     this->passedEvents++;
     END_RECORDING(nEvents, true, "COMPLETE")
 }
@@ -1567,8 +1613,8 @@ void DemoAnalyzer::Terminate()
     //NOTE
     //Can we remove this forever????
     //
-    //outFile->Write();
-    //outFile->Close();
+    outFile->Write();
+    outFile->Close();
 
     ReportPostTerminate();
 }
