@@ -224,6 +224,32 @@ std::string variables = "lep1_pt float;"
                         ; 
 
 
+struct TGHist{
+		int n_bins;
+		std::vector<float> bin_edges;
+		std::vector<float> bin_contents;
+};
+
+TGHist init_pdfhist;
+TGHist rf_pdfhist;
+
+void init_tghist( float begin, float end, int n_bins, TGHist* hist){
+		hist->n_bins = n_bins;
+		float width = (end - begin) / (float) n_bins;
+		for(int i = 0 ; i <= n_bins; i++){
+				hist->bin_edges.push_back( begin + i*width );
+				hist->bin_contents.push_back( 0.0 );
+		}
+};
+
+void update_tghist(float f, float w, TGHist* hist){
+		for(int i = 0; i < hist->n_bins; i++){
+				if ( (hist->bin_edges[i] <= f) || (f < hist->bin_edges[i+1] )){
+						hist->bin_contents[i] += w;
+				}
+		}
+};
+
 
 
 struct notes{
@@ -241,6 +267,9 @@ stringSDF construct_note(notes n){
         }
     }
     stringSDF note;
+		for(int i = 0 ; i < 256; i++){
+				note.characters[i] = '\0';
+		}
     strcpy(note.characters, str_notes.c_str());
     return note;
 };
