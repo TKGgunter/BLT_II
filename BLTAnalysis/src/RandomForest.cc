@@ -249,7 +249,6 @@ void load_forest( std::string path, Forest* forest){
 
 						if(members_forest[cursor] == "number_trees"){
 
-								printf("len %s\n", temp_buffer.c_str());
 								forest->n_trees = (int)atoi(temp_buffer.c_str());
 						}
 						else if(members_forest[cursor] == "features"){

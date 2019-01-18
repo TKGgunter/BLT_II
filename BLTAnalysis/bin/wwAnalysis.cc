@@ -175,6 +175,8 @@ std::string variables = "lep1_pt float;"
                         "pu_weight_up float;"
                         "pu_weight_down float;"
 
+                        "alpha_s float;"
+
                         "lep1_reco_weight float;"
                         "lep1_reco_weight_up float;"
                         "lep1_reco_weight_down float;"
@@ -238,17 +240,33 @@ void init_tghist( float begin, float end, int n_bins, TGHist* hist){
 		float width = (end - begin) / (float) n_bins;
 		for(int i = 0 ; i <= n_bins; i++){
 				hist->bin_edges.push_back( begin + i*width );
-				hist->bin_contents.push_back( 0.0 );
+				if( i < n_bins) hist->bin_contents.push_back( 0.0 );
 		}
 };
 
 void update_tghist(float f, float w, TGHist* hist){
 		for(int i = 0; i < hist->n_bins; i++){
-				if ( (hist->bin_edges[i] <= f) || (f < hist->bin_edges[i+1] )){
+				if ( (hist->bin_edges[i] <= f) && (f < hist->bin_edges[i+1] )){
 						hist->bin_contents[i] += w;
 				}
 		}
 };
+
+std::string print_tghist( TGHist* hist){
+		std::string s;
+		s += "Number of bins: " + std::to_string(hist->n_bins);
+		s += "Bin edges: \n";
+		FOR_IN(it, hist->bin_edges){
+				s += std::to_string(*it) + " ";
+		}
+		s += "\n";
+
+		s += "Bin contents: \n";
+		FOR_IN(it, hist->bin_contents){
+				s += std::to_string(*it) + " ";
+		}
+		return s;	
+}
 
 
 
@@ -392,7 +410,7 @@ struct RFScore{
 		float tt;
 };
 
-RFScore get_rf_score(){
+RFScore get_rfscore(){
 		RFScore s = {0.0,0.0};
 		{//TTforest
 				std::vector<float> arr;
@@ -414,7 +432,7 @@ RFScore get_rf_score(){
 
 		{//DYforest
 				std::vector<float> arr;
-				FOR_IN(it, TTforest.features){
+				FOR_IN(it, DYforest.features){
 						if ( vars_int.count(*it) ){
 								arr.push_back((float) *get_value(&vars_int, *it));
 						}
@@ -670,14 +688,18 @@ void DemoAnalyzer::Begin(TTree *tree)
     process = options.at(1) ; 
 
 		//Load Random Forest
+		printf("Loading random forest\n");
 		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/rfTT", &TTforest);
-		printf("Top forest\n");
-		print_forest(&TTforest);	
+		//printf("Top forest\n");
+		//print_forest(&TTforest);	
 
-		printf("Drell Yan forest\n");
 		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/rfDY", &DYforest);
-		print_forest(&DYforest);	
-		printf("EXIT\n");
+		//printf("Drell Yan forest\n");
+		//print_forest(&DYforest);	
+
+
+		init_tghist(-0.1, 99.9, 100, &init_pdfhist);
+		init_tghist(-0.1, 99.9, 100, &rf_pdfhist);
 
     /////////////////////////
     //PROGRESS BAR Start Up
@@ -844,6 +866,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
     //LHE && PV stuffs
     float lhe_nominal_weight = 1.0;
+    float alphas_scale = 1.0;
     std::vector<float> lheList;
     std::vector<float> qcdList;
     int tot_npv = -999;
@@ -855,8 +878,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
                 else if( i < 9) qcdList.push_back(lhe->weight);
 
-                else lheList.push_back(lhe->weight);
+                else if (i < 109) lheList.push_back(lhe->weight);
+
+								else  alphas_scale = lhe->weight;
             }
+						//printf("Number of lhe weights %d %d\n", fLHEWeightArr->GetEntries(), (int)lheList.size());
         } ELSE_PRINT("fLHEWeight is not available.");
         
         if(fPVArr){
@@ -990,6 +1016,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         }
         pdf_weight = pow(pdf_weight/(99. * lhe_nominal_weight * lhe_nominal_weight), .5);
         *get_value(&vars_float, "pdf_weight") = pdf_weight;
+
+        *get_value(&vars_float, "alpha_s") = alphas_scale / lhe_nominal_weight;
     }
 
 
@@ -1558,7 +1586,22 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         }
     }
 
-    
+   
+		//NOTE
+		//TGhist pdf weights
+		{
+				auto scores = get_rfscore();
+				ENUMERATE_IN(i, it, lheList){
+						float w = (*it) / lhe_nominal_weight;
+
+						update_tghist( i, w, &init_pdfhist);
+						if( (scores.dy > 0.96) && (scores.tt > 0.6)){
+								update_tghist( i, w, &rf_pdfhist);
+						}
+
+				}
+		}
+ 
 
     //////////   PROGRESS BAR        ///////////////////
     if (initialized_progressbar) progress_update(&progressbar);
@@ -1622,10 +1665,10 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     
     update_buffers(&TKGfile);
     outTree->Fill();
-		{// Random forest scores
-				auto _temp = get_rf_score();
+		/*{// Random forest scores
+				auto _temp = get_rfscore();
 				printf("%f %f\n", _temp.dy, _temp.tt);
-		}
+		}*/
     this->passedEvents++;
     END_RECORDING(nEvents, true, "COMPLETE")
 }
@@ -1672,6 +1715,11 @@ void DemoAnalyzer::ReportPostTerminate()
     strcat(TKGfile.header.notes.characters, std::to_string(this->totalEvents).c_str());
     write_sdf_to_disk( outFileName + ".tdf", &TKGfile );
     //read_sdf_from_disk( outFileName + ".tdf");
+
+		//printf("Initial pdf histogram\n");
+		//std::cout << print_tghist( &init_pdfhist) << std::endl;
+		//printf("Random forest selection pdf histogram\n");
+		//std::cout << print_tghist( &rf_pdfhist) << std::endl;
 
 }
 
