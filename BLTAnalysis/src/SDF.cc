@@ -67,7 +67,7 @@ struct headerSDF{
 		uint32_t number_of_events = 0;
 		uint32_t number_of_features = 0; //32bytes is a little large don't yah think
 		std::vector<tagHeaderSDF> type_tags;
-    stringSDF notes;
+    stringSDF notes; //We need a variable sized buffer....maybe later
 };	
 
 //Note:

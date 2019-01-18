@@ -360,6 +360,8 @@ int gElectrons = 0;
 TH1F tot_nEvents;
 TH1F nEvents ;
 TH1F nPV_plot;
+TH1F init_pdf_plot;
+TH1F rf_pdf_plot; 
 
 std::vector<std::string> double_trigger_arr = { };
 std::vector<std::string> single_trigger_arr = { "HLT_IsoMu24_v*",
@@ -636,6 +638,8 @@ void DemoAnalyzer::Begin(TTree *tree)
     nEvents     = TH1F("nEvents", "nEvents", 10, 0, 10); 
     nPV_plot    = TH1F("nPV", "nPV", 50, -0.05, 50.5); 
 
+    init_pdf_plot  = TH1F("init_pdf", "init_pdf", 100, -0.1, 99.9); 
+    rf_pdf_plot    = TH1F("rf_pdf", "rf_pdf", 100, -0.1, 99.9); 
 
     outTree = new TTree("data", "data_vec");
 
@@ -1595,8 +1599,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 						float w = (*it) / lhe_nominal_weight;
 
 						update_tghist( i, w, &init_pdfhist);
+						init_pdf_plot.Fill(i, w);
+
 						if( (scores.dy > 0.96) && (scores.tt > 0.6)){
 								update_tghist( i, w, &rf_pdfhist);
+								rf_pdf_plot.Fill(i, w);
 						}
 
 				}
@@ -1684,7 +1691,7 @@ void DemoAnalyzer::Terminate()
 
     //NOTE
     //Can we remove this forever????
-    //
+    //No not quite
     outFile->Write();
     outFile->Close();
 
