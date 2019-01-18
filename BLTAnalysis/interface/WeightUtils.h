@@ -62,7 +62,8 @@ class WeightUtils {
 				//Dilepnton weights
         WeightAndSigma  GetDiElectronTrig(TLorentzVector) const;
         WeightAndSigma  GetDiMuonTrig(TLorentzVector) const;
-        WeightAndSigma  GetMuonElectronTrig(TLorentzVector) const;
+        WeightAndSigma  GetMuonElectronTrig(TLorentzVector, TLorentzVector) const;
+				WeightAndSigma  GetDiLeptonTrig(TLorentzVector, TLorentzVector, int)const;
 
 
         //input parameters
@@ -97,16 +98,16 @@ class WeightUtils {
 				TH2D _elSF_trigger; //https://twiki.cern.ch/twiki/pub/CMS/EgammaIDRecipesRun2/2017Feb-A-Popov_TriggerSF_Run2016All_v1.root
 
 				//ADD up and down
-				/*
+				
 				CSV _trigger_dimuon_highleg;
 				CSV _trigger_dimuon_lowleg;
 
-				CSV _trigger_dielection_highleg;
-				CSV _trigger_dielection_lowleg;
+				CSV _trigger_dielectron_highleg;
+				CSV _trigger_dielectron_lowleg;
 
-				CSV _trigger_muonelectrion_highleg;
-				CSV _trigger_muonelectrion_lowleg;
-				*/
+				CSV _trigger_muonelectron_highleg;
+				CSV _trigger_muonelectron_lowleg;
+				
 };
 
 #endif

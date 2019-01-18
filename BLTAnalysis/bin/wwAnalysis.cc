@@ -363,7 +363,20 @@ TH1F nPV_plot;
 TH1F init_pdf_plot;
 TH1F rf_pdf_plot; 
 
-std::vector<std::string> double_trigger_arr = { };
+std::vector<std::string> double_trigger_arr = { 
+     "HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
+     "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_v*",
+     "HLT_Mu8_TrkIsoVVL_Ele17_CaloIdL_TrackIdL_IsoVL_v*",
+     "HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
+
+                  //DiMuon
+     "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*",
+     "HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_v*",
+
+                 //DiElectron
+     "HLT_DoubleEle24_22_eta2p1_WPLoose_Gsf_v*"
+
+};
 std::vector<std::string> single_trigger_arr = { "HLT_IsoMu24_v*",
                                             "HLT_IsoTkMu24_v*",
                                             "HLT_Ele27_WPTight_Gsf_v*"};
@@ -1094,7 +1107,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         //Currently Oct 24 2018 we are trying to 
         //check the pt against which trigger is fired 
         enum FUTURE_TRIGGER_COMB{
-            SINGLE_MUON,
+            SINGLE_MUON = 0,
             SINGLE_ELECTRON,
             DOUBLE_MUON,
             DOUBLE_ELECTRON,
@@ -1108,7 +1121,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 						//and if the proper leptons have fired
 						struct trig_info{
 								FUTURE_TRIGGER_COMB trigger_flag;
-								int leg1;
+								std::string trigger_name;
+								int leg1; //NOTE index of lepton associated with that leg
 								int leg2;
 						};
 						std::vector<trig_info> good_triggers;
@@ -1118,16 +1132,14 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 								FOR_IN(it, single_trigger_arr){
 										if( triggerSelector->pass(*it, fInfo->triggerBits) == false ) continue;
 										
-										//TODO 
-										//Check to make sure enumerate works properly
 									  ENUMERATE_IN(i, lepton_it, leptonList){
 
 												if( triggerSelector->passObj(*it, 1, lepton_it->hltMatchBits)){
 														if(lepton_it->type_flag == MUON){
-																good_triggers.push_back({SINGLE_MUON, i, -999});
+																good_triggers.push_back({SINGLE_MUON, it->c_str(), i, -999});
 														}
 														if(lepton_it->type_flag == ELECTRON){
-																good_triggers.push_back({SINGLE_ELECTRON, i, -999});
+																good_triggers.push_back({SINGLE_ELECTRON, it->c_str(), i, -999});
 														}	
 												}	
 										}	
@@ -1136,8 +1148,6 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 								FOR_IN(it, double_trigger_arr){
 										if( triggerSelector->pass(*it, fInfo->triggerBits) == false ) continue;
 										
-										//TODO 
-										//Check to make sure enumerate works properly
 									  ENUMERATE_IN(i, lepton_it, leptonList){
 									  ENUMERATE_IN(j, lepton_jt, leptonList){
 												if (i == j) continue;
@@ -1145,23 +1155,34 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 												if( triggerSelector->passObj(*it, 1, lepton_it->hltMatchBits) && triggerSelector->passObj(*it, 2, lepton_jt->hltMatchBits) ){
 														if(lepton_it->type_flag == lepton_jt->type_flag){
 
-																if (lepton_it->type_flag == MUON) good_triggers.push_back({DOUBLE_MUON, i, j});
+																if (lepton_it->type_flag == MUON) good_triggers.push_back({DOUBLE_MUON, it->c_str(), i, j});
 
-																else if (lepton_it->type_flag == ELECTRON) good_triggers.push_back({DOUBLE_ELECTRON, i, j});
+																else if (lepton_it->type_flag == ELECTRON) good_triggers.push_back({DOUBLE_ELECTRON, it->c_str(), i, j});
 
 														}
 														else{
-																good_triggers.push_back({MUON_ELECTRON, i, j});
+																good_triggers.push_back({MUON_ELECTRON, it->c_str(), i, j});
 														}	
 												}	
 
 										}	
 										}	
 								}
+								//Print out the results of getting good triggers to peek at what we've got/
+								printf(" triggertype  leg1   leg2  trigger name\n");	
+								FOR_IN(it, good_triggers){
+										printf(" %d           %d        %d  %s \n", (int)it->trigger_flag, it->leg1, it->leg2, it->trigger_name.c_str());	
+										//printf(" %f           %f        \n", leptonList[it->leg1].pt(), leptonList[it->leg1].eta());	
+								}
 						}
 
 					// There was some special thing to take into account when it comes to applying the trigger weights. I need to check nates code for the answers. 
-						std::vector<float> triggerweights_arr;
+						struct weights_and_unc{
+								float w;
+								float unc_up;
+								float unc_down;
+						};
+						std::vector<weights_and_unc> triggerweights_arr;
 						FOR_IN(it, good_triggers){
 								if (it->trigger_flag == DOUBLE_ELECTRON){
                 		//auto triggerweight = weights.GetDiElectronTriggerEff( leptonList[it->leg1].p4(), leptonList[it->leg2].p4() );
@@ -1177,17 +1198,28 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 								}
 								if      (it->trigger_flag == SINGLE_MUON){
                 		auto triggerweight = weights.GetMuonTriggerEff( "HLT_IsoMu24_v*", leptonList[it->leg1].p4());
-										triggerweights_arr.push_back(triggerweight.nominal);
+										triggerweights_arr.push_back({triggerweight.nominal, 0.0, 0.0});
 								}
 								else if (it->trigger_flag == SINGLE_ELECTRON){
                 		auto triggerweight = weights.GetElectronTriggerEff( leptonList[it->leg1].p4());
-										triggerweights_arr.push_back(triggerweight.nominal);
+										triggerweights_arr.push_back({triggerweight.nominal, 0.0, 0.0});
 								}
 								ELSE_PRINT("Housten we have a problem in the new trigger section has a good trigger with no actual trigger info set.");
 						}
+						//TODO
 						//compute final trigger weight
+						float _final_trigger_weight = 0.0;
+						float temp_unc = 999.9;
+						printf("Weigts    up     down\n");
 						FOR_IN( it, triggerweights_arr){
+								printf("%f     %f      %f\n", it->w, it->unc_up, it->unc_down);
+								float delta = fabs(it->unc_up - it->unc_down) / 2.0;
+								if ( delta < temp_unc){
+										temp_unc = delta;
+										_final_trigger_weight = w;
+								}
 						}
+						printf("Final trigger weight %f", _final_trigger_weight);
 				}
 				
 
