@@ -362,6 +362,8 @@ TH1F nEvents ;
 TH1F nPV_plot;
 TH1F init_pdf_plot;
 TH1F rf_pdf_plot; 
+TH1F dy_pdf_plot; 
+TH1F tt_pdf_plot; 
 
 std::vector<std::string> double_trigger_arr = { 
      //"HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
@@ -654,6 +656,8 @@ void DemoAnalyzer::Begin(TTree *tree)
 
     init_pdf_plot  = TH1F("init_pdf", "init_pdf", 100, -0.1, 99.9); 
     rf_pdf_plot    = TH1F("rf_pdf", "rf_pdf", 100, -0.1, 99.9); 
+    dy_pdf_plot    = TH1F("dy_pdf", "dy_pdf", 100, -0.1, 99.9); 
+    tt_pdf_plot    = TH1F("tt_pdf", "tt_pdf", 100, -0.1, 99.9); 
 
     outTree = new TTree("data", "data_vec");
 
@@ -1578,6 +1582,12 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 								update_tghist( i, w, &rf_pdfhist);
 								rf_pdf_plot.Fill(i, w);
 						}
+						if( (scores.dy < 0.6) && (scores.tt > 0.6)){
+								dy_pdf_plot.Fill(i, w);
+						}
+						if( (scores.dy > 0.6) && (scores.tt < 0.6)){
+								tt_pdf_plot.Fill(i, w);
+						}
 
 				}
 		}
@@ -1696,9 +1706,9 @@ void DemoAnalyzer::ReportPostTerminate()
     TKGfile.header.notes = construct_note(sdf_notes);
     strcat(TKGfile.header.notes.characters, "TOTAL:");
     strcat(TKGfile.header.notes.characters, std::to_string(this->totalEvents).c_str());
-    write_sdf_to_disk( outFileName + ".tdf", &TKGfile );
+    //write_sdf_to_disk( outFileName + ".tdf", &TKGfile );
+    
     //read_sdf_from_disk( outFileName + ".tdf");
-
 		//printf("Initial pdf histogram\n");
 		//std::cout << print_tghist( &init_pdfhist) << std::endl;
 		//printf("Random forest selection pdf histogram\n");
