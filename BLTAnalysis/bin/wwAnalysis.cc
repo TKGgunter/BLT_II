@@ -548,8 +548,13 @@ void DemoAnalyzer::Begin(TTree *tree)
 		
 		///////////////////
     const std::string cmssw_base = getenv("CMSSW_BASE");
-
+		//TODO 
+		//GET RID OF ME
+		CSV csv;
+		read_csv( cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers.txt", &csv );
+		print_csv(&csv);
 		
+		exit(0);
 		///////////////////
 
 
@@ -1185,16 +1190,16 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 						std::vector<weights_and_unc> triggerweights_arr;
 						FOR_IN(it, good_triggers){
 								if (it->trigger_flag == DOUBLE_ELECTRON){
-                		//auto triggerweight = weights.GetDiElectronTriggerEff( leptonList[it->leg1].p4(), leptonList[it->leg2].p4() );
-										//triggerweights_arr.push_back(triggerweight.nominal);
+										auto triggerweight = weights.TEMP_GetDiLeptonTrig(leptonList[it->leg1].p4(), leptonList[it->leg2].p4(), "dielectron");
+										triggerweights_arr.push_back({triggerweight.nominal, 0.0, 0.0});
 								}
 								else if (it->trigger_flag == DOUBLE_MUON){
-                		//auto triggerweight = weights.GetDiMuonTriggerEff( leptonList[it->leg1].p4(), leptonList[it->leg2].p4() );
-										//triggerweights_arr.push_back(triggerweight.nominal);
+										auto triggerweight = weights.TEMP_GetDiLeptonTrig(leptonList[it->leg1].p4(), leptonList[it->leg2].p4(), "dimuon");
+										triggerweights_arr.push_back({triggerweight.nominal, 0.0, 0.0});
 								}
 								else if (it->trigger_flag == MUON_ELECTRON){
-                		//auto triggerweight = weights.GetElMuonTriggerEff( leptonList[it->leg1].p4(), leptonList[it->leg2].p4() );
-										//triggerweights_arr.push_back(triggerweight.nominal);
+										auto triggerweight = weights.TEMP_GetDiLeptonTrig(leptonList[it->leg1].p4(), leptonList[it->leg2].p4(), "emu");
+										triggerweights_arr.push_back({triggerweight.nominal, 0.0, 0.0});
 								}
 								if      (it->trigger_flag == SINGLE_MUON){
                 		auto triggerweight = weights.GetMuonTriggerEff( "HLT_IsoMu24_v*", leptonList[it->leg1].p4());
@@ -1216,7 +1221,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 								float delta = fabs(it->unc_up - it->unc_down) / 2.0;
 								if ( delta < temp_unc){
 										temp_unc = delta;
-										_final_trigger_weight = w;
+										_final_trigger_weight = it->w;
 								}
 						}
 						printf("Final trigger weight %f", _final_trigger_weight);

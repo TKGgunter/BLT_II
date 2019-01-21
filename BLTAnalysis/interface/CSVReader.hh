@@ -26,14 +26,16 @@ std::vector<float>* get_column(CSV* csv, std::string column){
 
 void print_csv(CSV* csv){
 
+		printf("CSV\n");
+		printf("number of features %d %d\n", (int)csv->column_names.size(), csv->nfeatures);
 		for(int i= 0; i< csv->nfeatures; i++){
-				printf("%s\t", csv->column_names[i].c_str());
+				printf("~%s~%d\t", csv->column_names[i].c_str(), (int)csv->datas[i].size());
 		}
 
 		printf("\n");
 
-		for(int i= 0; i< csv->nentries; i++){
-				for(int j= 0; j< csv->nfeatures; j++){
+		for(int i= 0; i < csv->nentries; i++){
+				for(int j= 0; j < csv->nfeatures; j++){
 
 						printf("%f\t", csv->datas[j][i]);
 				}
@@ -66,7 +68,6 @@ void read_csv( std::string filename, CSV* csv){
 
 		bool first_line = true;
 		std::vector<char> delimiters = {'\t', ' '};
-		char newline_chars = '\n';
 
 		int cursor = 0;
 		csv->column_names.clear();
@@ -78,7 +79,7 @@ void read_csv( std::string filename, CSV* csv){
 
 				//@Robustness this could be moved within the delimiter loop 
 				//not sure if that makes things easier to read or not
-				if (*it == newline_chars){ 
+				if (*it == '\n'){ 
 						if (first_line) {
 								//I'm scared that they is a copy of pointers not a true clone of data
 					  		csv->column_names.push_back(temp_buffer);
@@ -87,16 +88,18 @@ void read_csv( std::string filename, CSV* csv){
 										csv->datas.push_back(std::vector<float>());
 								}
 								first_line = false; 
+						} else{
+								if (temp_buffer.length() > 0) csv->datas[cursor].push_back((float)atof(temp_buffer.c_str()));
 						}
 						cursor = 0;
 						temp_buffer.clear();
 						continue;
 				}
+				bool skip_char = false;
 				for(auto _it = delimiters.begin(); _it != delimiters.end(); _it++){
 
 						if( *_it == *it  && temp_buffer.length() > 0) { 
 								if (first_line) {
-										//I'm scared that they is a copy of pointers not a true clone of that data
 										csv->column_names.push_back(temp_buffer);
 										csv->nfeatures++;
 
@@ -106,9 +109,21 @@ void read_csv( std::string filename, CSV* csv){
 								}
 								temp_buffer.clear();	
 								break;
+						} 
+						if (*_it == *it && (int)temp_buffer.length() == 0){
+							skip_char = true;
 						}
 				}
+				//CLEANUP
+				//May not need this
+				if (skip_char){ 
+						continue;
+				}
+				if ( ' ' == *it &&  0 == (int)temp_buffer.length()) {
+						continue;
+				}
 				temp_buffer += *it;
+				//printf("%s %d\n", temp_buffer.c_str(), (int)temp_buffer.length());
 		} 
 		csv->nentries = (int)csv->datas[0].size() ;
 	

@@ -60,10 +60,12 @@ class WeightUtils {
 				WeightAndSigma GetBJetWeight(float pt, float eta, int flavor, float csv_score, float csv_cut);
 
 				//Dilepnton weights
-        WeightAndSigma  GetDiElectronTrig(TLorentzVector) const;
-        WeightAndSigma  GetDiMuonTrig(TLorentzVector) const;
-        WeightAndSigma  GetMuonElectronTrig(TLorentzVector, TLorentzVector) const;
-				WeightAndSigma  GetDiLeptonTrig(TLorentzVector, TLorentzVector, int)const;
+        WeightAndSigma  GetDiElectronTrig(TLorentzVector);
+        WeightAndSigma  GetDiMuonTrig(TLorentzVector);
+        WeightAndSigma  GetMuonElectronTrig(TLorentzVector, TLorentzVector);
+				WeightAndSigma  GetDiLeptonTrig(TLorentzVector, TLorentzVector, std::string);
+
+				WeightAndSigma  TEMP_GetDiLeptonTrig(TLorentzVector, TLorentzVector, std::string);
 
 
         //input parameters
@@ -107,6 +109,8 @@ class WeightUtils {
 
 				CSV _trigger_muonelectron_highleg;
 				CSV _trigger_muonelectron_lowleg;
+
+				CSV _trigger_dilepton;
 				
 };
 

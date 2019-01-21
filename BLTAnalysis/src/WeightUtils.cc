@@ -182,6 +182,8 @@ WeightUtils::WeightUtils() //std::string dataPeriod, std::string selection, bool
 
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_muonelectron_lowleg);
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_muonelectron_highleg);
+
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers", &_trigger_dilepton);
 			
 		}
 }
@@ -858,31 +860,35 @@ WeightAndSigma  GetDiMuonTrig(TLorentzVector p4){
 }
 */
 //WeightAndSigma  GetMuonElectronTrig(TLorentzVector p4, TLorentzVector q4){
-WeightAndSigma  GetDiLeptonTrig(TLorentzVector p4, TLorentzVector q4, int flavor){
+/*
+WeightAndSigma  WeightUtils::GetDiLeptonTrig(TLorentzVector p4, TLorentzVector q4, std::string flavor){
 		WeightAndSigma w;
 
-		float pt1 = p4.Pt()
-		float eta1 = p4.Eta()
+		float pt1 = p4.Pt();
+		float eta1 = p4.Eta();
 
-		float pt2  = q4.Pt()
-		float eta2 = q4.Eta()
+		float pt2  = q4.Pt();
+		float eta2 = q4.Eta();
 		
 		WeightAndSigma w_high;
 		CSV* csv_high;
 		CSV* csv_low;
-		if (flavor == 0){
+		if (flavor =="dimuon"){
 				csv_high = &_trigger_dimuon_highleg;
 				csv_low  = &_trigger_dimuon_lowleg;
 		}
-		else if (flavor == 1){
+		else if (flavor == "dielectron"){
 				csv_high = &_trigger_dielectron_highleg;
 				csv_low  = &_trigger_dielectron_lowleg;
-		} else{
+		} else if (flavor == "emu"){
 				csv_high = &_trigger_muonelectron_highleg;
 				csv_low  = &_trigger_muonelectron_lowleg;
+		} else{
+				printf("Getdilepton trigger got a flavor it did not expect: %s", flavor.c_str());
 		}
 		
-
+		//TODO
+		//overflow index protection needed
 		{//high pt leg
 				auto ptmin  =  *get_column(csv_high, "ptmin");
 				auto ptmax  =  *get_column(csv_high, "ptmax");
@@ -898,7 +904,7 @@ WeightAndSigma  GetDiLeptonTrig(TLorentzVector p4, TLorentzVector q4, int flavor
 								
 								w_high.nominal= eff[i];
 								w_high.up 		= sigma[i];
-								w_high.low 		= sigma[i];
+								w_high.down 		= sigma[i];
 						}
 				}
 		}
@@ -918,14 +924,65 @@ WeightAndSigma  GetDiLeptonTrig(TLorentzVector p4, TLorentzVector q4, int flavor
 								
 								w_low.nominal = eff[i];
 								w_low.up 			= sigma[i];
-								w_low.low 		= sigma[i];
+								w_low.down 		= sigma[i];
 						}
 				}
 		}
 
 		return w;
 }
+*/
+WeightAndSigma  WeightUtils::TEMP_GetDiLeptonTrig(TLorentzVector p4, TLorentzVector q4, std::string flavor){
+		WeightAndSigma w;
 
+		float pt1 = p4.Pt();
+		float eta1 = p4.Eta();
+
+		float pt2  = q4.Pt();
+		float eta2 = q4.Eta();
+
+    auto pt1min  =  *get_column(&_trigger_dilepton, "pt1min");
+    auto pt1max  =  *get_column(&_trigger_dilepton, "pt1max");
+    auto eta1min =  *get_column(&_trigger_dilepton, "eta1min");
+    auto eta1max =  *get_column(&_trigger_dilepton, "eta1max");
+
+    auto pt2min  =  *get_column(&_trigger_dilepton, "pt2min");
+    auto pt2max  =  *get_column(&_trigger_dilepton, "pt2max");
+    auto eta2min =  *get_column(&_trigger_dilepton, "eta2min");
+    auto eta2max =  *get_column(&_trigger_dilepton, "eta2max");
+	
+		std::vector<float> eff;
+
+		if (flavor == "dimuon"){
+				auto eff    =  *get_column(&_trigger_dilepton, "mumu_ratio");
+		}
+		else if (flavor == "dielectron"){
+				auto eff    =  *get_column(&_trigger_dilepton, "ee_ratio");
+		}
+		else if (flavor == "emu"){
+				auto eff    =  *get_column(&_trigger_dilepton, "emu_ratio");
+		}
+
+		else{
+		    printf("Getdilepton trigger got a flavor it did not expect: %s", flavor.c_str());
+		}
+		for (int i = 0; i < _trigger_dilepton.nentries; i++) {
+				if( pt1min[i]  < pt1  && pt1max[i]  >= pt1  && 
+						eta1min[i] < eta1 && eta1max[i] >= eta1 &&
+
+				    pt2min[i]  < pt2  && pt2max[i]  >= pt2  && 
+						eta2min[i] < eta2 && eta2max[i] >= eta2  ){
+						
+						w.nominal = eff[i];
+						//TODO
+						//we need to get real uncertainties but these can come later
+						//Jan 20, 2019
+						w.up 			= 0.05;
+						w.down 		= 0.05;
+				}
+		}
+		return w;
+}
  
 //NOTE
 //Stolen from https://root.cern.ch/doc/master/TH2_8cxx_source.html#l01328
