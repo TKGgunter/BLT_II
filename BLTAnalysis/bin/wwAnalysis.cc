@@ -893,11 +893,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         if(fLHEWeightArr){
             ENUMERATE_IN_fARR(i, lhe, fLHEWeightArr, TLHEWeight){
 
-                if( i == 0 ) lhe_nominal_weight = lhe->weight;
+                if( lhe->id == 1001 ) lhe_nominal_weight = lhe->weight;
 
-                else if( i < 9) qcdList.push_back(lhe->weight);
+                else if( lhe->id <= 1009) qcdList.push_back(lhe->weight);
 
-                else if (i < 109) lheList.push_back(lhe->weight);
+                else if (lhe->id <= 2100) lheList.push_back(lhe->weight);
 
 								else  alphas_scale = lhe->weight;
             }
