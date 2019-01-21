@@ -380,6 +380,9 @@ std::vector<std::string> double_trigger_arr = {
 std::vector<std::string> single_trigger_arr = { "HLT_IsoMu24_v*",
                                             "HLT_IsoTkMu24_v*",
                                             "HLT_Ele27_WPTight_Gsf_v*"};
+//DEPRICATED 
+//DELETE SOON
+//jan 21, 2019
 std::vector<std::string> trigger_vector = { "HLT_IsoMu24_v*",
                                             "HLT_IsoTkMu24_v*",
                                             //"HLT_IsoMu20_v*",
@@ -812,6 +815,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
         } ELSE_PRINT("fElectronArr is not available.");
     }
+							
 
     //CONCATE LEPTONS
     std::vector<TGPhysObject> leptonList;
@@ -1150,6 +1154,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 												if (i == j) continue;
 
 												if( triggerSelector->passObj(*it, 1, lepton_it->hltMatchBits) && triggerSelector->passObj(*it, 2, lepton_jt->hltMatchBits) ){
+														//printf("dilepton pt %f %f\n", lepton_it->pt(), lepton_jt->pt());
 														if(lepton_it->type_flag == lepton_jt->type_flag){
 
 																if (lepton_it->type_flag == MUON) good_triggers.push_back({DOUBLE_MUON, it->c_str(), i, j});
@@ -1165,6 +1170,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 										}	
 										}	
 								}
+								//DEBUG
 								//Print out the results of getting good triggers to peek at what we've got/
 								//printf(" triggertype  leg1   leg2  trigger name\n");	
 								//FOR_IN(it, good_triggers){
@@ -1192,7 +1198,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 										auto triggerweight = weights.TEMP_GetDiLeptonTrig(leptonList[it->leg1].p4(), leptonList[it->leg2].p4(), "emu");
 										triggerweights_arr.push_back({triggerweight.nominal, 0.0, 0.0});
 								}
-								if      (it->trigger_flag == SINGLE_MUON){
+								else if      (it->trigger_flag == SINGLE_MUON){
                 		auto triggerweight = weights.GetMuonTriggerEff( "HLT_IsoMu24_v*", leptonList[it->leg1].p4());
 										triggerweights_arr.push_back({triggerweight.nominal, 0.0, 0.0});
 								}
@@ -1202,88 +1208,25 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 								}
 								ELSE_PRINT("Housten we have a problem in the new trigger section has a good trigger with no actual trigger info set.");
 						}
-						//TODO
-						//compute final trigger weight
+
+						//TODO we should look at unc in the future
+						//float temp_unc = 999.9;
 						float _final_trigger_weight = 0.0;
-						float temp_unc = 999.9;
 						FOR_IN( it, triggerweights_arr){
-								float delta = fabs(it->unc_up - it->unc_down) / 2.0;
 								//TODO
 								//this should be used in the future
 								//jan 20, 2019
-								if ( delta < temp_unc){
-										temp_unc = delta;
-										_final_trigger_weight = it->w;
-								}
-								printf("SDFASFA %f\n", it->w);
+								//float delta = fabs(it->unc_up - it->unc_down) / 2.0;
+								//if ( delta < temp_unc){
+								//		temp_unc = delta;
+								//		_final_trigger_weight = it->w;
+								//}
+								if (_final_trigger_weight < it->w)  _final_trigger_weight = it->w;
 						}
-						printf("Final trigger weight %f %f\n", _final_trigger_weight, *get_value(&vars_float, "lep1_trigger_weight"));
+            *get_value(&vars_float, "trigger_weight") = _final_trigger_weight;
 				}
 				
-				
-        FUTURE_TRIGGER_COMB FUTURE_trigger = DEFAULT_ME;
-        FUTURE_TRIGGER_COMB FUTURE_trigger_1 = DEFAULT_ME;
-        FUTURE_TRIGGER_COMB FUTURE_trigger_2 = DEFAULT_ME;
-        int number_triggers_passed = 0;
-        if (fInfo->triggerBits != 0){
-            for(unsigned i = 0; i < trigger_vector.size(); i++){
-                if (triggerSelector->passObj(trigger_vector[i], 1, leptonList[0].hltMatchBits)){
-                    if ( leptonList[0].type_flag == MUON && leptonList[0].pt() > 25) FUTURE_trigger_1 = SINGLE_MUON;
-                    if ( leptonList[0].type_flag == ELECTRON && leptonList[0].pt() > 27) FUTURE_trigger_1 = SINGLE_ELECTRON;
-                }
-                if (triggerSelector->passObj(trigger_vector[i], 1, leptonList[1].hltMatchBits)){
-                    if ( leptonList[1].type_flag == MUON && leptonList[1].pt() > 25) FUTURE_trigger_2 = SINGLE_MUON;
-                    if ( leptonList[1].type_flag == ELECTRON && leptonList[1].pt() > 27) FUTURE_trigger_2 = SINGLE_ELECTRON;
-                }
-                if( triggerSelector->pass( trigger_vector[i], fInfo->triggerBits) ){
-                    number_triggers_passed++;
-                }
-            }
-        }
-    	
-				
-        {
-            if ( FUTURE_trigger_1 == FUTURE_trigger_2 && FUTURE_trigger_1 != DEFAULT_ME) {
-                if (FUTURE_trigger_1 == SINGLE_MUON ) FUTURE_trigger = DOUBLE_MUON;
-                else if (FUTURE_trigger_1 == SINGLE_ELECTRON ) FUTURE_trigger = DOUBLE_ELECTRON;
-                ELSE_PRINT("DOUBLE LEPTON Triggers were bad for some reason");
-            }
-            else if ( FUTURE_trigger_1 != FUTURE_trigger_2 && (FUTURE_trigger_1 != DEFAULT_ME && FUTURE_trigger_2 != DEFAULT_ME)) {
-                if (FUTURE_trigger_1 == SINGLE_MUON && FUTURE_trigger_2 == SINGLE_ELECTRON) FUTURE_trigger = MUON_ELECTRON;
-                else if (FUTURE_trigger_1 == SINGLE_ELECTRON && FUTURE_trigger_1 == SINGLE_MUON ) FUTURE_trigger = DOUBLE_ELECTRON;
-                ELSE_PRINT("SINGLE LEPTON Triggers were bad for some reason");
-            }
-            else if ( FUTURE_trigger_1 != DEFAULT_ME || FUTURE_trigger_2 != DEFAULT_ME) {
-                if (FUTURE_trigger_1 == SINGLE_MUON ) FUTURE_trigger = DOUBLE_MUON;
-                else if (FUTURE_trigger_1 == SINGLE_ELECTRON ) FUTURE_trigger = DOUBLE_ELECTRON;
-                ELSE_PRINT("SINGLE BUT DOUBLE Triggers were bad for some reason");
-            }
-            else{
-            }
-        }
   
-        *get_value(&vars_float, "trigger_weight") = 1;
-        *get_value(&vars_float, "trigger_weight") = *get_value(&vars_float, "lep1_trigger_weight"); 
-        if ( number_triggers_passed == 1 ) {
-            *get_value(&vars_float, "trigger_weight") = *get_value(&vars_float, "lep1_trigger_weight"); 
-        }
-        else if ( number_triggers_passed >= 2 ) {
-            //TODO
-            //Temp get rid or me PLZ
-            *get_value(&vars_float, "trigger_weight") = *get_value(&vars_float, "lep1_trigger_weight"); 
-            *get_value(&vars_float, "trigger_weight_up") = *get_value(&vars_float, "lep1_trigger_weight_up"); 
-            *get_value(&vars_float, "trigger_weight_down") = *get_value(&vars_float, "lep1_trigger_weight_down"); 
-            ///////
-            if ( FUTURE_trigger == DOUBLE_MUON || FUTURE_trigger == DOUBLE_ELECTRON || FUTURE_trigger == MUON_ELECTRON){
-                //TODO
-                //check if sub leading lepton passes trigger requirements
-                float eff_DATA_lep1 = 0.999999;
-                float eff_DATA_lep2 = 0.999991;
-                float eff_MC_lep1   = 0.999991;
-                float eff_MC_lep2   = 0.999999;
-                *get_value(&vars_float, "trigger_weight") *= (1. - (1. - eff_DATA_lep1) * (1. - eff_DATA_lep2)) / (1. - (1. - eff_MC_lep1) * (1. - eff_MC_lep2)); 
-            } 
-        }
     }
    	 
     {// BJet weights
@@ -1681,8 +1624,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     bool pass_trigger = true;
     if (fInfo->triggerBits != 0){
         pass_trigger = false;
-        for(unsigned i = 0; i < trigger_vector.size(); i++){
-            pass_trigger |= triggerSelector->pass( trigger_vector[i], fInfo->triggerBits);
+        for(unsigned i = 0; i < single_trigger_arr.size(); i++){
+            pass_trigger |= triggerSelector->pass( single_trigger_arr[i], fInfo->triggerBits);
+        }
+        for(unsigned i = 0; i < double_trigger_arr.size(); i++){
+            pass_trigger |= triggerSelector->pass( double_trigger_arr[i], fInfo->triggerBits);
         }
     }
     END_RECORDING(nEvents, !pass_trigger, "Trigger")

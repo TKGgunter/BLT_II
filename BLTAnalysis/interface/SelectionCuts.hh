@@ -20,10 +20,10 @@
 //==============Good Muon Selection Cuts ==========
 bool muIsGood									= true; 
 float muEta										= 2.4;
+float muPt										= 10;
 float muNormChi2							= 10;
 int muNumbValidHits						= 0;
 float muSumPFIso							= 0.15;
-float muPt										= 20;
 bool muIsGLB									=	true;
 bool muIsPF										=	true;
 int muNumbMatchedStat				  =	1;
