@@ -364,7 +364,7 @@ TH1F init_pdf_plot;
 TH1F rf_pdf_plot; 
 
 std::vector<std::string> double_trigger_arr = { 
-     "HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
+     //"HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
      "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_v*",
      "HLT_Mu8_TrkIsoVVL_Ele17_CaloIdL_TrackIdL_IsoVL_v*",
      "HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
@@ -548,13 +548,6 @@ void DemoAnalyzer::Begin(TTree *tree)
 		
 		///////////////////
     const std::string cmssw_base = getenv("CMSSW_BASE");
-		//TODO 
-		//GET RID OF ME
-		CSV csv;
-		read_csv( cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers.txt", &csv );
-		print_csv(&csv);
-		
-		exit(0);
 		///////////////////
 
 
@@ -1148,7 +1141,6 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 														}	
 												}	
 										}	
-
 								}
 								FOR_IN(it, double_trigger_arr){
 										if( triggerSelector->pass(*it, fInfo->triggerBits) == false ) continue;
@@ -1174,11 +1166,10 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 										}	
 								}
 								//Print out the results of getting good triggers to peek at what we've got/
-								printf(" triggertype  leg1   leg2  trigger name\n");	
-								FOR_IN(it, good_triggers){
-										printf(" %d           %d        %d  %s \n", (int)it->trigger_flag, it->leg1, it->leg2, it->trigger_name.c_str());	
-										//printf(" %f           %f        \n", leptonList[it->leg1].pt(), leptonList[it->leg1].eta());	
-								}
+								//printf(" triggertype  leg1   leg2  trigger name\n");	
+								//FOR_IN(it, good_triggers){
+								//		printf(" %d           %d        %d  %s \n", (int)it->trigger_flag, it->leg1, it->leg2, it->trigger_name.c_str());	
+								//}
 						}
 
 					// There was some special thing to take into account when it comes to applying the trigger weights. I need to check nates code for the answers. 
@@ -1215,20 +1206,21 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 						//compute final trigger weight
 						float _final_trigger_weight = 0.0;
 						float temp_unc = 999.9;
-						printf("Weigts    up     down\n");
 						FOR_IN( it, triggerweights_arr){
-								printf("%f     %f      %f\n", it->w, it->unc_up, it->unc_down);
 								float delta = fabs(it->unc_up - it->unc_down) / 2.0;
+								//TODO
+								//this should be used in the future
+								//jan 20, 2019
 								if ( delta < temp_unc){
 										temp_unc = delta;
 										_final_trigger_weight = it->w;
 								}
+								printf("SDFASFA %f\n", it->w);
 						}
-						printf("Final trigger weight %f", _final_trigger_weight);
+						printf("Final trigger weight %f %f\n", _final_trigger_weight, *get_value(&vars_float, "lep1_trigger_weight"));
 				}
 				
-
-
+				
         FUTURE_TRIGGER_COMB FUTURE_trigger = DEFAULT_ME;
         FUTURE_TRIGGER_COMB FUTURE_trigger_1 = DEFAULT_ME;
         FUTURE_TRIGGER_COMB FUTURE_trigger_2 = DEFAULT_ME;
@@ -1248,7 +1240,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                 }
             }
         }
-        
+    	
+				
         {
             if ( FUTURE_trigger_1 == FUTURE_trigger_2 && FUTURE_trigger_1 != DEFAULT_ME) {
                 if (FUTURE_trigger_1 == SINGLE_MUON ) FUTURE_trigger = DOUBLE_MUON;
@@ -1292,7 +1285,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
             } 
         }
     }
-    
+   	 
     {// BJet weights
         WeightAndSigma bjet_weight = {1.0, 1.0, 1.0};
         WeightAndSigma bjet_bc_weight = {1.0, 1.0, 1.0};

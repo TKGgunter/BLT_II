@@ -172,8 +172,8 @@ WeightUtils::WeightUtils() //std::string dataPeriod, std::string selection, bool
 				_btagreader.load(_btag_calibrator, BTagEntry::FLAV_UDSG,"incl");
 		}
 
-		if (false) {
-				
+		{
+				/*				
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_dimuon_lowleg);
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_dimuon_highleg);
 
@@ -182,8 +182,8 @@ WeightUtils::WeightUtils() //std::string dataPeriod, std::string selection, bool
 
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_muonelectron_lowleg);
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_muonelectron_highleg);
-
-				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers", &_trigger_dilepton);
+				*/
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers.txt", &_trigger_dilepton);
 			
 		}
 }
@@ -934,6 +934,9 @@ WeightAndSigma  WeightUtils::GetDiLeptonTrig(TLorentzVector p4, TLorentzVector q
 */
 WeightAndSigma  WeightUtils::TEMP_GetDiLeptonTrig(TLorentzVector p4, TLorentzVector q4, std::string flavor){
 		WeightAndSigma w;
+		w.nominal = -999.99;
+		w.up = -999.99;
+		w.down = -999.99;
 
 		float pt1 = p4.Pt();
 		float eta1 = p4.Eta();
@@ -954,18 +957,20 @@ WeightAndSigma  WeightUtils::TEMP_GetDiLeptonTrig(TLorentzVector p4, TLorentzVec
 		std::vector<float> eff;
 
 		if (flavor == "dimuon"){
-				auto eff    =  *get_column(&_trigger_dilepton, "mumu_ratio");
+				eff    =  *get_column(&_trigger_dilepton, "mumu_ratio");
 		}
 		else if (flavor == "dielectron"){
-				auto eff    =  *get_column(&_trigger_dilepton, "ee_ratio");
+				eff    =  *get_column(&_trigger_dilepton, "ee_ratio");
 		}
 		else if (flavor == "emu"){
-				auto eff    =  *get_column(&_trigger_dilepton, "emu_ratio");
+				eff    =  *get_column(&_trigger_dilepton, "emu_ratio");
 		}
 
 		else{
 		    printf("Getdilepton trigger got a flavor it did not expect: %s", flavor.c_str());
+				exit(0);
 		}
+		if ((int)eff.size() != (int)_trigger_dilepton.nentries ) exit(0);
 		for (int i = 0; i < _trigger_dilepton.nentries; i++) {
 				if( pt1min[i]  < pt1  && pt1max[i]  >= pt1  && 
 						eta1min[i] < eta1 && eta1max[i] >= eta1 &&
@@ -981,6 +986,7 @@ WeightAndSigma  WeightUtils::TEMP_GetDiLeptonTrig(TLorentzVector p4, TLorentzVec
 						w.down 		= 0.05;
 				}
 		}
+
 		return w;
 }
  

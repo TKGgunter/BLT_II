@@ -20,7 +20,8 @@ std::vector<float>* get_column(CSV* csv, std::string column){
 				if ( *it == column ) return &(csv->datas[i]);
 				i++;
 		}
-		printf("get column failed... we need a Option enum");
+		printf("get column failed. %s .. we need a Option enum", column.c_str());
+		exit(0);
 		return &(csv->datas[0]);
 }
 
@@ -64,7 +65,7 @@ void read_csv( std::string filename, CSV* csv){
 		//NOTE
 		//This is a test to be sure that we have copied the entire file into memory
 		//TODO: Remove after we test Jan 9, 2018
-		printf("this is a test\n%s", csv_text.c_str());
+		//printf("this is a test\n%s", csv_text.c_str());
 
 		bool first_line = true;
 		std::vector<char> delimiters = {'\t', ' '};
