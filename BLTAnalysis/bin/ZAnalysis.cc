@@ -556,7 +556,6 @@ void DemoAnalyzer::Begin(TTree *tree)
     }
 
 
-    std::cout << " FLOAT 16 to 32 I expect 5.0: " << float16to32(float32to16(-23.00)) << std::endl;
     //std::cout << " FLOAT 32 to 16 I expect 2.0: " << float32to16(2.0) << std::endl;
 
     ReportPostBegin();

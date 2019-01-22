@@ -41,7 +41,10 @@ T* get_value(std::map<std::string, T>* m, std::string name){
 		for( _i = 0, it_name = (type*) fArr->At(0); _i < fArr->GetEntries(); _i++, it_name=(type*) fArr->At(_i))\
 \
 
-
+#define FOR_IN_RANGE(i, x, y)\
+    for(int i = x; i < y; i++)\
+\
+    
 
 #define ENUMERATE_IN(i, it_name, list)\
 		int i=0;\

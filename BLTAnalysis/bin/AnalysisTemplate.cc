@@ -7,6 +7,7 @@
 #include "BLT_II/BLTAnalysis/interface/WeightUtils.h"
 #include "BLT_II/BLTAnalysis/interface/RoccoR.h"
 #include "BLT_II/BLTAnalysis/src/SDF.cc"
+#include "BLT_II/BLTAnalysis/interface/CSVReader.hh"
 
 //C++ libraries
 #include <algorithm>    // std::find
@@ -35,6 +36,52 @@ std::string variables =	"lep1_pt float;"
 												;	
 
 
+struct TGHist2D{
+		int n_bins1;
+		int n_bins2;
+		std::vector<float> bin_edges1;
+		std::vector<float> bin_edges2;
+		std::vector<float> bin_contents;
+};
+
+
+void init_tghist2d( float begin, float end, int n_bins, TGHist2D* hist){};
+
+void update_tghist2d(float f1, float f2, float w, TGHist2D* hist){
+		for(int i = 0; i < hist->n_bins1; i++){
+		    for(int j = 0; j < hist->n_bins2; j++){
+            if ( (hist->bin_edges1[i] <= f1) && (f1 < hist->bin_edges1[i+1] ) &&
+                 (hist->bin_edges2[j] <= f2) && (f2 < hist->bin_edges2[j+1] )  ){
+                hist->bin_contents[i+j] += w;
+            }
+				}
+		}
+};
+
+std::string print_tghist( TGHist2D* hist){
+		std::string s;
+		s += "Number of bins: " + std::to_string(hist->n_bins1 * hist->n_bins2) + "\n";
+		FOR_IN(it, hist->bin_edges1){
+				s += std::to_string(*it) + " ";
+		}
+		s += "\n";
+		FOR_IN(it, hist->bin_edges2){
+				s += std::to_string(*it) + " ";
+		}
+		s += "\n";
+
+		s += "Bin contents: \n";
+		FOR_IN(it, hist->bin_contents){
+				s += std::to_string(*it) + " ";
+		}
+		return s;	
+}
+
+CSV    csv;
+TGHist2D leg1;
+TGHist2D leg2;
+TGHist2D trig_leg1;
+TGHist2D trig_leg2;
 
 
 
@@ -254,6 +301,60 @@ void DemoAnalyzer::Begin(TTree *tree)
 		stage_variables( &TKGfile );
 	
 
+    //TODO
+    //get good dilepton trigger data
+		read_csv( cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers.txt", &csv);
+
+//struct CSV{
+//		std::vector<std::string> column_names;	
+//		std::vector<std::vector<float>> datas;
+//		int nfeatures;	
+//		int nentries;	
+//};
+
+    auto  TEMP_init_hist = [](TGHist2D* hist){//We want to get unique binnings
+        auto pt1max = *get_column(&csv, "ptmax");
+        auto pt1min = *get_column(&csv, "ptmin");
+        auto eta1max = *get_column(&csv, "etamax");
+        auto eta1min = *get_column(&csv, "etamin");
+        int countx = 0;
+        int county = 0;
+        FOR_IN_RANGE(i, 0, csv.nentries){
+            if (i == 0){
+                hist->bin_edges1.push_back( pt1min[0] );
+                hist->bin_edges2.push_back( eta1min[0] );
+            }
+            //Init pt bin edges
+            bool in_hist = false;
+            FOR_IN(it, hist->bin_edges1){
+                if (*it == pt1max[i]) in_hist = true;
+            }
+            if (in_hist == false){
+                hist->bin_edges1.push_back( pt1max[i]);
+                countx++;
+            }
+
+            //Init eta bin edges
+            in_hist = false;
+            FOR_IN(it, hist->bin_edges2){
+                if (*it == eta1max[i]) in_hist = true;
+            }
+            if (in_hist == false){
+                hist->bin_edges1.push_back( eta1max[i]);
+                county++;
+            }
+            
+        }
+        int max_count = countx * county;
+        FOR_IN_RANGE(i, 0, max_count){
+            hist->bin_contents.push_back(0.0);
+        }
+    };
+    TEMP_init_hist(&leg1);
+    TEMP_init_hist(&leg2);
+    TEMP_init_hist(&trig_leg1);
+    TEMP_init_hist(&trig_leg2);
+
 
 		gRandom = new TRandom();
 		weights = WeightUtils();
@@ -439,13 +540,14 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 		//////////////////////////////
 		//NOTE
 		//setting lepton pt, eta, phi, stuffs
-		ENUMERATE_IN(i, lepton, leptonList){
+
+		{ENUMERATE_IN(i, lepton, leptonList){
 				if( i+1 < 3){
 						char buffer[10];
 						sprintf(buffer, "lep%i_pt", i+1);	
 						*get_value(&vars_float, buffer) = lepton->pt();
 				}
-		}
+		}}
 
 
 		//////////////////////////////
@@ -463,7 +565,23 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 		}
 		*get_value(&vars_int, "numb_bjets")	 = number_bjets;
 
+		//////////////////////////////
+		//NOTE
+    //get trigger leg eff 
+    //TODO 
+    //separate flavor combinations
+    if(leptonList.size() >= 2 && fabs(*get_value(&vars_float, "mll") - 90) < 15 ){
+        update_tghist2d(leptonList[0].pt(), leptonList[0].eta(), 1.0, &leg1);
+        update_tghist2d(leptonList[1].pt(), leptonList[1].eta(), 1.0, &leg2);
 
+				if( triggerSelector->pass("HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*", fInfo->triggerBits) ){   
+				    if (triggerSelector->passObj("HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*", 1, leptonList[0].hltMatchBits) ) 
+                update_tghist2d(leptonList[0].pt(), leptonList[0].eta(), 1.0, &trig_leg1);
+
+            if (triggerSelector->passObj("HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*", 2, leptonList[1].hltMatchBits) )
+                update_tghist2d(leptonList[1].pt(), leptonList[1].eta(), 1.0, &trig_leg2);
+        } 
+    } 
 		
 	
 
