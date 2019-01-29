@@ -349,8 +349,9 @@ std::vector<std::string> else_print_messages;
 //WTF is this stuff
 std::string process; 
 std::string process_decay; 
-int n_muons = 0;
-int n_elec  = 0;
+int n_dimuons = 0;
+int n_dielec  = 0;
+int n_emu  = 0;
 int gMuons = 0;
 int gElectrons = 0;
 //////////////////////////////////////
@@ -376,19 +377,11 @@ std::vector<std::string> double_trigger_arr = {
      "HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_v*",
 
                  //DiElectron
+     "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_v*",
      "HLT_DoubleEle24_22_eta2p1_WPLoose_Gsf_v*"
-
 };
 std::vector<std::string> single_trigger_arr = { "HLT_IsoMu24_v*",
                                             "HLT_IsoTkMu24_v*",
-                                            "HLT_Ele27_WPTight_Gsf_v*"};
-//DEPRICATED 
-//DELETE SOON
-//jan 21, 2019
-std::vector<std::string> trigger_vector = { "HLT_IsoMu24_v*",
-                                            "HLT_IsoTkMu24_v*",
-                                            //"HLT_IsoMu20_v*",
-                                            //"HLT_Ele23_WPLoose_Gsf_v*",
                                             "HLT_Ele27_WPTight_Gsf_v*"};
 
 
@@ -899,7 +892,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
                 if( lhe->id == 1001 ) lhe_nominal_weight = lhe->weight;
 
-                else if( lhe->id <= 1009) qcdList.push_back(lhe->weight);
+                else if( lhe->id > 1001 && lhe->id <= 1009) qcdList.push_back(lhe->weight);
 
                 else if (lhe->id <= 2100) lheList.push_back(lhe->weight);
 
@@ -1155,10 +1148,9 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 										
 									  ENUMERATE_IN(i, lepton_it, leptonList){
 									  ENUMERATE_IN(j, lepton_jt, leptonList){
-												if (i == j) continue;
+												if (i >= j) continue;
 
 												if( triggerSelector->passObj(*it, 1, lepton_it->hltMatchBits) && triggerSelector->passObj(*it, 2, lepton_jt->hltMatchBits) ){
-														//printf("dilepton pt %f %f\n", lepton_it->pt(), lepton_jt->pt());
 														if(lepton_it->type_flag == lepton_jt->type_flag){
 
 																if (lepton_it->type_flag == MUON) good_triggers.push_back({DOUBLE_MUON, it->c_str(), i, j});
@@ -1227,6 +1219,10 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 								//}
 								if (_final_trigger_weight < it->w)  _final_trigger_weight = it->w;
 						}
+            if ( _final_trigger_weight == 0){
+                //printf("\n\n\t\t\ttrigger fail %f %f %f %f %f %d\n\n", _final_trigger_weight, *get_value(&vars_float, "lep1_trigger_weight"), *get_value(&vars_float, "lep2_trigger_weight"), leptonList[0].pt(), leptonList[0].eta(), (int)leptonList.size());
+                _final_trigger_weight = *get_value(&vars_float, "lep1_trigger_weight");
+            }
             *get_value(&vars_float, "trigger_weight") = _final_trigger_weight;
 				}
 				
@@ -1289,6 +1285,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     //setting lepton pt, eta, phi, stuffs
     {
         ENUMERATE_IN(i, lepton, leptonList){
+            //TODO
+            //the range cut should not be hard coded
             if( i+1 < 4){
                 {
                     char buffer[10];
@@ -1613,12 +1611,12 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     }
     //////////////////////////////
     //Z mass cut
-    {
+    {   //NOTE
+        //This was changed recently might not be working as expected stay vigilant
         bool  same_flavor = *get_value(&vars_int, "lep1_type")  == *get_value(&vars_int, "lep2_type");
         float mll = *get_value(&vars_float, "mll");
-        if (same_flavor) {
-            if ( fabs(mll - 91.0) < 10 ) END_RECORDING(nEvents, true, "Zmass")
-        }
+        bool cut = ( fabs(mll - 91.0) < 10 ) && same_flavor;
+        END_RECORDING(nEvents, cut, "Zmass")
     }
 
     //////////////////////////////
@@ -1662,6 +1660,13 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 				auto _temp = get_rfscore();
 				printf("%f %f\n", _temp.dy, _temp.tt);
 		}*/
+    if (*get_value(&vars_int, "dilepton_type") == -1) {
+        n_dimuons++;
+    } else if (*get_value(&vars_int, "dilepton_type") == -2) {
+        n_dielec++;
+    } else {
+        n_emu++;
+    }
     this->passedEvents++;
     END_RECORDING(nEvents, true, "COMPLETE")
 }
@@ -1698,7 +1703,7 @@ void DemoAnalyzer::ReportPostTerminate()
 //    std::cout << "  output   : " << params->get_output_filename("demoFile") << std::endl;
 //    std::cout << "           : Processed " << this->fileCount << " files with " << this->unskimmedEventCount << " unskimmed events." << std::endl;
     std::cout << "           : Selected " << this->passedEvents << " / " << this->totalEvents << " events." << std::endl;
-    std::cout << " RECO      : Muons "  << n_muons << "\t" << "Electrons " << n_elec << std::endl;
+    std::cout << " RECO      : diMuons "  << n_dimuons << "\t" << "diElectrons " << n_dielec << "\tEMu " << n_emu << std::endl;
 //    std::cout << " GEN       : Muons "  << gMuons << "\t" << "Electrons " << gElectrons << std::endl;
     std::cout << "  ============================================================" << std::endl;
 
@@ -1706,7 +1711,7 @@ void DemoAnalyzer::ReportPostTerminate()
     TKGfile.header.notes = construct_note(sdf_notes);
     strcat(TKGfile.header.notes.characters, "TOTAL:");
     strcat(TKGfile.header.notes.characters, std::to_string(this->totalEvents).c_str());
-    //write_sdf_to_disk( outFileName + ".tdf", &TKGfile );
+    write_sdf_to_disk( outFileName + ".tdf", &TKGfile );
     
     //read_sdf_from_disk( outFileName + ".tdf");
 		//printf("Initial pdf histogram\n");

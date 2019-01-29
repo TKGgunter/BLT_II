@@ -939,10 +939,10 @@ WeightAndSigma  WeightUtils::TEMP_GetDiLeptonTrig(TLorentzVector p4, TLorentzVec
 		w.down = -999.99;
 
 		float pt1 = p4.Pt();
-		float eta1 = p4.Eta();
+		float eta1 = fabs(p4.Eta());
 
 		float pt2  = q4.Pt();
-		float eta2 = q4.Eta();
+		float eta2 = fabs(q4.Eta());
 
     auto pt1min  =  *get_column(&_trigger_dilepton, "pt1min");
     auto pt1max  =  *get_column(&_trigger_dilepton, "pt1max");
@@ -970,7 +970,11 @@ WeightAndSigma  WeightUtils::TEMP_GetDiLeptonTrig(TLorentzVector p4, TLorentzVec
 		    printf("Getdilepton trigger got a flavor it did not expect: %s", flavor.c_str());
 				exit(0);
 		}
-		if ((int)eff.size() != (int)_trigger_dilepton.nentries ) exit(0);
+		if ((int)eff.size() != (int)_trigger_dilepton.nentries ){
+        printf("Error with eff size and number of dilepton trigger events\n");
+        exit(0);
+    }
+
 		for (int i = 0; i < _trigger_dilepton.nentries; i++) {
 				if( pt1min[i]  < pt1  && pt1max[i]  >= pt1  && 
 						eta1min[i] < eta1 && eta1max[i] >= eta1 &&
