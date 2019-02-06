@@ -52,6 +52,13 @@ std::string variables = "lep1_pt float;"
                         "qt float;"
 
                 //** Jet Variables begin here **//
+                        "genjet1_pt float;"
+                        "genjet1_phi float;"
+                        "genjet1_eta float;"
+
+                        "pujet1_pt float;"
+                        "pujet1_phi float;"
+                        "pujet1_eta float;"
 
                         "jet1_pt float;"
                         "jet2_pt float;"
@@ -120,8 +127,19 @@ std::string variables = "lep1_pt float;"
                         "numb_jets_res int;"  
                         "numb_jets_scale_up int;" 
                         "numb_jets_scale_down int;" 
+
+                        "numb_jets_24 int;"  
+                        "numb_jets_24_res int;"  
+                        "numb_jets_24_scale_up int;" 
+                        "numb_jets_24_scale_down int;" 
+
+                        "numb_genjets_24 int;"  
+
+
                         "numb_bjets int;"
                         "numb_bjets_gen int;"
+
+
                         "dPhilljet float;"
                         "dPhimetjet float;"
                         "dPhilljet_res float;"
@@ -168,7 +186,7 @@ std::string variables = "lep1_pt float;"
                         "qcd4_weight float;"
                         "qcd6_weight float;"
                         "qcd8_weight float;"
-                        "qcd9_weight float;"
+                        "qcd9_weight float;"  //<= WTF is this?  There is no 9th weight and it never gets filled.
                         "pdf_weight float;"
 
                         "pu_weight float;"
@@ -440,7 +458,6 @@ RFScore get_rfscore(){
 						}
 				}
 				s.tt = score_forest( arr, &TTforest);
-					
 		}
 
 		{//DYforest
@@ -866,12 +883,18 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     //Do gen particle && gen jet stuff
     float gen_event_info_weight = 1.0;
     std::vector<TGPhysObject> wwList;
+    std::vector<TGPhysObject> genJetList;
+		*get_value(&vars_int,   "numb_genjets_24") = 0;
     {
         if(fGenParticleArr){
             wwSelection( wwList, fGenParticleArr);
         } ELSE_PRINT("fGenParticleArr is not available.");
 
         if(fGenJetArr){
+
+            if(fGenParticleArr)
+			          *get_value(&vars_int,   "numb_genjets_24") = genJetSelection(fGenParticleArr, fGenJetArr, 30.0, 2.4, genJetList);
+
         } ELSE_PRINT("fGenJetArr is not available.");
 
         if(fGenEvtInfo){
@@ -898,7 +921,6 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
 								else  alphas_scale = lhe->weight;
             }
-						//printf("Number of lhe weights %d %d\n", fLHEWeightArr->GetEntries(), (int)lheList.size());
         } ELSE_PRINT("fLHEWeight is not available.");
         
         if(fPVArr){
@@ -1353,10 +1375,17 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
     int number_bjets = 0;
     int number_bjets_gen = 0;
+
     int number_jets = 0;
     int number_jets_res = 0;
     int number_jets_scale_up = 0;
     int number_jets_scale_down = 0;
+
+    int number_jets_24 = 0;
+    int number_jets_24_res = 0;
+    int number_jets_24_scale_up = 0;
+    int number_jets_24_scale_down = 0;
+
     float HT                = 0.0;
     float HT_res            = 0.0;
     float HT_scale_up       = 0.0;
@@ -1443,6 +1472,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                 if (i == 0) {} 
                 else  _recoil += jet->p4();
                 
+                if (fabs(jet->eta()) < 2.4) number_jets_24 += 1;
             }
             if( jet->pt()*_resolution_jet_pt_variation >= 30 ){
                 number_jets_res += 1;
@@ -1450,6 +1480,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
                 if (i == 0) _recoil_res *= _resolution_jet_pt_variation;
                 else  _recoil_res += jet->p4()*_resolution_jet_pt_variation;
+
+                if (fabs(jet->eta()) < 2.4) number_jets_24_res += 1;
             }
             if( jet->pt()*_scale_jet_pt_up >= 30 ){
                 number_jets_scale_up += 1;
@@ -1457,6 +1489,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
                 if (i == 0) _recoil_scale_up *= _scale_jet_pt_up;
                 else  _recoil_scale_up += jet->p4()*_scale_jet_pt_up;
+
+                if (fabs(jet->eta()) < 2.4) number_jets_24_scale_up += 1;
             }
             if( jet->pt()*_scale_jet_pt_down >= 30 ){
                 number_jets_scale_down += 1;
@@ -1464,6 +1498,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
                 if (i == 0) _recoil_scale_down *= _scale_jet_pt_down;
                 else  _recoil_scale_down += jet->p4()*_scale_jet_pt_down;
+
+                if (fabs(jet->eta()) < 2.4) number_jets_24_scale_down += 1;
             }
             //NOTE
             //0.8484 is the Mid working point for bjet identification using the cssv alg.
@@ -1491,12 +1527,20 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     *get_value(&vars_int,   "numb_jets_res")       = number_jets_res;
     *get_value(&vars_int,   "numb_jets_scale_up")  = number_jets_scale_up;
     *get_value(&vars_int,   "numb_jets_scale_down")  = number_jets_scale_down;
+
+    *get_value(&vars_int,   "numb_jets_24")             = number_jets_24;
+    *get_value(&vars_int,   "numb_jets_24_res")         = number_jets_24_res;
+    *get_value(&vars_int,   "numb_jets_24_scale_up")    = number_jets_24_scale_up;
+    *get_value(&vars_int,   "numb_jets_24_scale_down")  = number_jets_24_scale_down;
+
     *get_value(&vars_int,   "numb_bjets")     = number_bjets;
     *get_value(&vars_int,   "numb_bjets_gen") = number_bjets_gen;
     *get_value(&vars_float, "HT")             = HT;
     *get_value(&vars_float, "HT_res")         = HT_res;
     *get_value(&vars_float, "HT_scale_up")    = HT_scale_up;
     *get_value(&vars_float, "HT_scale_down")  = HT_scale_down;
+
+
 
 
     if ( leptonList.size() >= 2 && jetList.size() > 0){
@@ -1708,10 +1752,10 @@ void DemoAnalyzer::ReportPostTerminate()
     std::cout << "  ============================================================" << std::endl;
 
 
-    TKGfile.header.notes = construct_note(sdf_notes);
-    strcat(TKGfile.header.notes.characters, "TOTAL:");
-    strcat(TKGfile.header.notes.characters, std::to_string(this->totalEvents).c_str());
-    write_sdf_to_disk( outFileName + ".tdf", &TKGfile );
+    //TKGfile.header.notes = construct_note(sdf_notes);
+    //strcat(TKGfile.header.notes.characters, "TOTAL:");
+    //strcat(TKGfile.header.notes.characters, std::to_string(this->totalEvents).c_str());
+    //write_sdf_to_disk( outFileName + ".tdf", &TKGfile );
     
     //read_sdf_from_disk( outFileName + ".tdf");
 		//printf("Initial pdf histogram\n");
