@@ -9,6 +9,7 @@
 #include "BLT_II/BLTAnalysis/src/SDF.cc"
 #include "BLT_II/BLTAnalysis/interface/CSVReader.hh"
 #include "BLT_II/BLTAnalysis/src/RandomForest.cc"
+#include "BLT_II/BLTAnalysis/interface/ElectronCorrector.h"
 
 //C++ libraries
 #include <algorithm>    // std::find std::max
@@ -50,6 +51,9 @@ std::string variables = "lep1_pt float;"
                         "mllmet_jetscale_down float;"
                         "avg_muon_pt_correction float;"
                         "qt float;"
+
+                        "genlep1_type int;"
+                        "genlep2_type int;"
 
                 //** Jet Variables begin here **//
                         "genjet1_pt float;"
@@ -383,6 +387,8 @@ TH1F init_pdf_plot;
 TH1F rf_pdf_plot; 
 TH1F dy_pdf_plot; 
 TH1F tt_pdf_plot; 
+TH1F gen_lep_types;
+TH1F rf_gen_lep_types;
 
 std::vector<std::string> double_trigger_arr = { 
      //"HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
@@ -430,7 +436,7 @@ ProgressBar progressbar;
 
 WeightUtils weights;
 RoccoR      muonCorr;
-
+EnergyScaleCorrection electronCorr;
 
 
 Forest TTforest;
@@ -669,6 +675,9 @@ void DemoAnalyzer::Begin(TTree *tree)
     dy_pdf_plot    = TH1F("dy_pdf", "dy_pdf", 100, -0.1, 99.9); 
     tt_pdf_plot    = TH1F("tt_pdf", "tt_pdf", 100, -0.1, 99.9); 
 
+    gen_lep_types  = TH1F("gen_lep_types", "gen_lep_types", 40, 0, 40);
+    rf_gen_lep_types  = TH1F("rf_gen_lep_types", "rf_gen_lep_types", 40, 0, 40);
+
     outTree = new TTree("data", "data_vec");
 
     //Setting up root file with pointers from our map
@@ -713,6 +722,9 @@ void DemoAnalyzer::Begin(TTree *tree)
 
     printf("\t Muon Corrections\n");
     muonCorr.init(cmssw_base + "/src/BLT_II/BLTAnalysis/data/rcdata.2016.v3");
+
+    printf("\t Electron Corrections\n");
+    electronCorr = EnergyScaleCorrection(cmssw_base + "/src/BLT_II/BLTAnalysis/data/");
     printf("Complete weights/corrections\n");
 
     printf("Setting process/process decay names");
@@ -860,6 +872,17 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     avg_muon_pt_scalefactor /= (float)muonList.size();
 
     FOR_IN(electron, electronList){
+        if(isRealData){ 
+            scaleData sdata = electronCorr.GetScaleData( &*electron, fInfo->runNum);
+            printf("%f ", (double)electron->pt());
+            electron->particle.electron.pt *= sdata.scale;
+            printf("%f \n", (double)electron->pt());
+        } else {
+            float sFactor = electronCorr.GetSmearingFactor( &*electron, 0, 0);
+            printf("%f ", (double)electron->pt());
+            electron->particle.electron.pt *= gRandom->Gaus(1, sFactor);
+            printf("%f \n", (double)electron->pt());
+        }
         leptonList.push_back(*electron);
     }
     tgSort(leptonList);
@@ -883,11 +906,14 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     //Do gen particle && gen jet stuff
     float gen_event_info_weight = 1.0;
     std::vector<TGPhysObject> wwList;
+    std::vector<TGPhysObject> genLepList;
     std::vector<TGPhysObject> genJetList;
 		*get_value(&vars_int,   "numb_genjets_24") = 0;
     {
         if(fGenParticleArr){
             wwSelection( wwList, fGenParticleArr);
+            wwGenLepSelection( genLepList, fGenParticleArr);
+            tgSort(genLepList);
         } ELSE_PRINT("fGenParticleArr is not available.");
 
         if(fGenJetArr){
@@ -1600,12 +1626,18 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     } 
 
     //NOTE
-    //WWpt calculation
+    //WWpt calculation && genlepton type records
     {
         float wwpt = 0.0;
         if (wwList.size() >=2){
             wwpt = (wwList[0].p4() + wwList[1].p4()).Pt();
             *get_value(&vars_float, "wwpt")  = wwpt;
+
+        }
+        
+        if (genLepList.size() >=2){
+            *get_value(&vars_int, "genlep1_type")  = abs(genLepList[0].particle.genparticle.pdgId);
+            *get_value(&vars_int, "genlep2_type")  = abs(genLepList[1].particle.genparticle.pdgId);
         }
     }
 
@@ -1634,6 +1666,19 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 				}
 		}
  
+
+
+    {//Recording gen lepton types
+        int genlep1 = *get_value(&vars_int, "genlep1_type");
+        int genlep2 = *get_value(&vars_int, "genlep2_type");
+        
+        int _result = genlep1  == 15 || genlep2 == 15 ?  20 : 0;
+        
+        gen_lep_types.Fill( genlep1 + genlep2  - 20 + _result);
+
+				auto scores = get_rfscore();
+        if (scores.dy > 0.96 && scores.tt > 0.6) rf_gen_lep_types.Fill( genlep1 + genlep2 - 20 + _result );
+    }
 
     //////////   PROGRESS BAR        ///////////////////
     if (initialized_progressbar) progress_update(&progressbar);

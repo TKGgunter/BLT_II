@@ -298,4 +298,14 @@ void TGPhysObject::set_p4(TLorentzVector p4){
 		}
 }
 
+void print_tgphysobj(TGPhysObject* obj){
+    printf("TGPhysObject: \nid: %d pt: %f eta: %f phi: %f charge: %d\n", 
+          (int) obj->type_flag, (double)obj->pt(), (double)obj->eta(), (double)obj->phi(), obj->q());
+}
+
+
+
+
+
+
 

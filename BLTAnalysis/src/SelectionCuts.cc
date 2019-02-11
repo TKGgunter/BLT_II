@@ -283,6 +283,23 @@ void wwSelection(std::vector<TGPhysObject> &wwList, TClonesArray* gen_particles)
 				}
 		}
 }
+void wwGenLepSelection(std::vector<TGPhysObject> &genLepList, TClonesArray* gen_particles){
+		int id = 24; //This is the W boson pdg id code
+
+		FOR_IN_fARR(particle, gen_particles, baconhep::TGenParticle){
+				if( particle == NULL){
+            continue;
+				}
+
+				if( abs(particle->pdgId ) == 11 || abs(particle->pdgId) == 13 || abs(particle->pdgId == 15) ){
+
+
+            if (particle->parent < 0) continue;
+            int pdgId = abs( ((baconhep::TGenParticle*)gen_particles->At(particle->parent))->pdgId );
+            if( pdgId == id )  genLepList.push_back(TGPhysObject(particle));
+				}
+		}
+}
 
 
 

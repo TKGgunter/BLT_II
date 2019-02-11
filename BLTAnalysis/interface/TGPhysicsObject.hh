@@ -177,7 +177,7 @@ struct TGPhysObject{
 
 };
 
-
+void print_tgphysobj(TGPhysObject*);
 
 
 #endif  

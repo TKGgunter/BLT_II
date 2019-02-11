@@ -126,5 +126,6 @@ void looseelectronSelection( std::vector<TGPhysObject> &elecList, TClonesArray* 
 
 void wwSelection(std::vector<TGPhysObject> &wwList, TClonesArray* leptons);
 int genJetSelection(TClonesArray* gen_particles, TClonesArray* reco_jets, float pt_cut, float eta_cut, std::vector<TGPhysObject> &genJetList);
+void wwGenLepSelection(std::vector<TGPhysObject> &genLepList, TClonesArray* gen_particles);
 
 #endif
