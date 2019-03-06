@@ -21,10 +21,6 @@
 #include "BLT_II/BLTAnalysis/interface/BLTSelector.hh"
 #include "BLT_II/BLTAnalysis/interface/Parameters.hh"
 #include "BLT_II/BLTAnalysis/interface/TriggerSelector.hh"
-//#include "BLT/BLTAnalysis/interface/RoccoR.h"
-//#include "BLT/BLTAnalysis/interface/rochcor2016.h"
-//#include "BLT/BLTAnalysis/interface/WeightUtils.h"
-//#include "BLT/BLTAnalysis/interface/EnergyScaleCorrection_class.h"
 
 
 

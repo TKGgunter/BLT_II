@@ -203,7 +203,5 @@ Int_t BLTSelector::MakeMeSandwich(int argc, char **argv) {
         std::cout << info() << "CPU  time: " << timer.CpuTime() << std::endl;
         std::cout << info() << "Real time: " << timer.RealTime() << std::endl;
     }
-    //TEST
-    exit(0);
     return 0;
 }

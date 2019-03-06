@@ -34,6 +34,7 @@ struct WeightAndSigma{
 };
 
 
+
 class WeightUtils {
     public:
         WeightUtils();

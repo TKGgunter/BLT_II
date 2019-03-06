@@ -21,13 +21,13 @@ WeightUtils::WeightUtils() //std::string dataPeriod, std::string selection, bool
 		
 
 				OPEN_TFILE(puFileName_mf, puFile_mf);
-				_puReweight_mf = *(TGraph*)puFile_mf->Get("pileup_sf");
+				_puReweight_mf = TGraph(*(TGraph*)puFile_mf->Get("pileup_sf"));
 
 				OPEN_TFILE(puFileName_up_mf, puFile_up_mf);
-				_puReweight_up_mf = *(TGraph*)puFile_up_mf->Get("pileup_sf");
+				_puReweight_up_mf = TGraph(*(TGraph*)puFile_up_mf->Get("pileup_sf"));
 
 				OPEN_TFILE(puFileName_down_mf, puFile_down_mf);
-				_puReweight_down_mf = *(TGraph*)puFile_down_mf->Get("pileup_sf");
+				_puReweight_down_mf = TGraph(*(TGraph*)puFile_down_mf->Get("pileup_sf"));
 		}
 
 
@@ -38,13 +38,13 @@ WeightUtils::WeightUtils() //std::string dataPeriod, std::string selection, bool
 				std::string puFileName_down = cmssw_base + "/src/BLT_II/BLTAnalysis/data/pileup_sf_2016_full_66013_bins75_mar2018.root"; 
 
 				OPEN_TFILE(puFileName, puFile);
-				_puReweight = *(TGraph*)puFile->Get("pileup_sf");
+				_puReweight = TGraph(*(TGraph*)puFile->Get("pileup_sf"));
 
 				OPEN_TFILE(puFileName_up, puFile_up);
-				_puReweight_up = *(TGraph*)puFile_up->Get("pileup_sf");
+				_puReweight_up = TGraph(*(TGraph*)puFile_up->Get("pileup_sf"));
 
 				OPEN_TFILE(puFileName_down, puFile_down);
-				_puReweight_down = *(TGraph*)puFile_down->Get("pileup_sf");
+				_puReweight_down = TGraph(*(TGraph*)puFile_down->Get("pileup_sf"));
 		}
 		///////////// 
 		//muon Trigger
@@ -777,6 +777,7 @@ WeightAndSigma WeightUtils::GetBJetWeight(float pt, float eta, int flavor, float
             weight_down = (1 - sf_down * mc_eff) / (1 - mc_eff);
         }
 				else{ 
+            //printf("not tagged and sf == 0, %f %f %d\n", eta, pt, flavor);
             weight      = 1; 
             weight_up   = 1; 
             weight_down = 1; 
@@ -789,6 +790,7 @@ WeightAndSigma WeightUtils::GetBJetWeight(float pt, float eta, int flavor, float
             weight_down = sf_down;
         }
 				else{ 
+            //printf("tagged but sf == 0\n");
             weight      = 1;
             weight_up   = 1;
             weight_down = 1;

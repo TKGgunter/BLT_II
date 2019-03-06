@@ -191,6 +191,7 @@ TGPhysObject::TGPhysObject(baconhep::TGenParticle* genparticle ){
 		particle.genparticle.pt   = genparticle->pt;
 		particle.genparticle.eta  = genparticle->eta;
 		particle.genparticle.phi  = genparticle->phi;
+    particle.genparticle.mass = genparticle->mass;
 }
 
 TGPhysObject::TGPhysObject(baconhep::TGenJet* genjet){

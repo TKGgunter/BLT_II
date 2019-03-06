@@ -33,6 +33,9 @@ std::string variables =	"lep1_pt float;"
 												"pu_weight_up float;"
 												"pu_weight_down float;"
 												"process string;"
+
+                        "wwpt float;"
+                        "trigger_fired int;"
 												;	
 
 
@@ -77,7 +80,6 @@ std::string print_tghist( TGHist2D* hist){
 		return s;	
 }
 
-CSV    csv;
 TGHist2D leg1;
 TGHist2D leg2;
 TGHist2D trig_leg1;
@@ -128,6 +130,25 @@ int gElectrons = 0;
 TH1F tot_nEvents;
 TH1F nEvents ;
 TH1F nPV_plot;
+std::vector<std::string> double_trigger_arr = { 
+     //"HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
+     "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_v*",
+     "HLT_Mu8_TrkIsoVVL_Ele17_CaloIdL_TrackIdL_IsoVL_v*",
+     "HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
+
+                  //DiMuon
+     "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*",
+     "HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_v*",
+
+                 //DiElectron
+     "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ_v*", //NEW
+     "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_v*",
+     "HLT_DoubleEle24_22_eta2p1_WPLoose_Gsf_v*"
+};
+std::vector<std::string> single_trigger_arr = { "HLT_IsoMu24_v*",
+                                            "HLT_IsoTkMu24_v*",
+                                            "HLT_Ele27_WPTight_Gsf_v*"};
+
 
 std::vector<std::string> trigger_vector = {
                                       //MuEG
@@ -156,7 +177,6 @@ std::map<std::string, std::string>		vars_string;
 SerialDataFormat TKGfile;
 
 WeightUtils weights;
-RoccoR			muonCorr;
 
 //TODO
 //Move some where more appropriate
@@ -301,59 +321,7 @@ void DemoAnalyzer::Begin(TTree *tree)
 		stage_variables( &TKGfile );
 	
 
-    //TODO
-    //get good dilepton trigger data
-		read_csv( cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers.txt", &csv);
 
-//struct CSV{
-//		std::vector<std::string> column_names;	
-//		std::vector<std::vector<float>> datas;
-//		int nfeatures;	
-//		int nentries;	
-//};
-
-    auto  TEMP_init_hist = [](TGHist2D* hist){//We want to get unique binnings
-        auto pt1max = *get_column(&csv, "ptmax");
-        auto pt1min = *get_column(&csv, "ptmin");
-        auto eta1max = *get_column(&csv, "etamax");
-        auto eta1min = *get_column(&csv, "etamin");
-        int countx = 0;
-        int county = 0;
-        FOR_IN_RANGE(i, 0, csv.nentries){
-            if (i == 0){
-                hist->bin_edges1.push_back( pt1min[0] );
-                hist->bin_edges2.push_back( eta1min[0] );
-            }
-            //Init pt bin edges
-            bool in_hist = false;
-            FOR_IN(it, hist->bin_edges1){
-                if (*it == pt1max[i]) in_hist = true;
-            }
-            if (in_hist == false){
-                hist->bin_edges1.push_back( pt1max[i]);
-                countx++;
-            }
-
-            //Init eta bin edges
-            in_hist = false;
-            FOR_IN(it, hist->bin_edges2){
-                if (*it == eta1max[i]) in_hist = true;
-            }
-            if (in_hist == false){
-                hist->bin_edges1.push_back( eta1max[i]);
-                county++;
-            }
-            
-        }
-        int max_count = countx * county;
-        FOR_IN_RANGE(i, 0, max_count){
-            hist->bin_contents.push_back(0.0);
-        }
-    };
-    TEMP_init_hist(&leg1);
-    TEMP_init_hist(&leg2);
-    TEMP_init_hist(&trig_leg1);
-    TEMP_init_hist(&trig_leg2);
 
 
 		gRandom = new TRandom();
@@ -365,7 +333,6 @@ void DemoAnalyzer::Begin(TTree *tree)
 		std::string jsonFileName = cmssw_base + "/src/BLT/BLTAnalysis/data/Cert_271036-284044_13TeV_23Sep2016ReReco_Collisions16_JSON.txt";
 		lumiMask.AddJSONFile( jsonFileName );
 
-		muonCorr.init(cmssw_base + "/src/BLT/BLTAnalysis/data/rcdata.2016.v3");
 
 		/////////////////////////
 		//PROGRESS BAR Start Up
@@ -393,6 +360,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 		
 		tot_nEvents.Fill(1);
 		nEvents.Fill( count_cuts );
+    count_cuts++;
     const bool isRealData = (fInfo->runNum != 1);
 		
 		// Set default values for all variables
@@ -437,31 +405,9 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
 		//CONCATE LEPTONS
 		std::vector<TGPhysObject> leptonList;
-		float avg_muon_scalefactor = 0.0;
 		FOR_IN(muon, muonList){
-				double muon_scalefactor = 1.0;
-				if (isRealData){
-						muon_scalefactor *= muonCorr.kScaleDT( muon->particle.muon.q, 
-																									 muon->particle.muon.pt,
-																									 muon->particle.muon.eta,
-																									 muon->particle.muon.phi
-																									);
-				}
-				else{
-						muon_scalefactor *= muonCorr.kScaleAndSmearMC( muon->particle.muon.q, 
-																													 muon->particle.muon.pt,
-																													 muon->particle.muon.eta,
-																													 muon->particle.muon.phi,
-																													 muon->particle.muon.nTkLayers,
-																													 gRandom->Rndm(),
-																													 gRandom->Rndm()
-																										      );
-				}
-				avg_muon_scalefactor += (float)muon_scalefactor;
-				muon->particle.muon.pt *= muon_scalefactor;
 				leptonList.push_back(*muon);
 		}
-		avg_muon_scalefactor /= (float)muonList.size();
 
 		FOR_IN(electron, electronList){
 				leptonList.push_back(*electron);
@@ -482,8 +428,10 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 		}
 
 		//Do gen particle && gen jet stuff
+    std::vector<TGPhysObject> wwList;
 		{
 				if(fGenParticleArr){
+            wwSelection( wwList, fGenParticleArr);
 				} ELSE_PRINT("fGenParticleArr is not available.");
 
 				if(fGenJetArr){
@@ -523,7 +471,6 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     *get_value(&vars_float, "pu_weight_up")   = weights.GetPUWeight(fInfo->nPUmean).up;
     *get_value(&vars_float, "pu_weight_down") = weights.GetPUWeight(fInfo->nPUmean).down;
 
-		*get_value(&vars_float, "avg_muon_correction") = avg_muon_scalefactor;
 
 			/*
 			//TODO save
@@ -553,37 +500,50 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 		//////////////////////////////
 		//NOTE
 		//jet related stuffs
-		*get_value(&vars_int, "numb_jets")  = jetList.size();
-
+    int number_jets = 0;
 		int number_bjets = 0;
-		FOR_IN(jet, jetList){
-				//NOTE
-				//0.8484 should be defined in the Selection headerfile or something
-				if( jet->particle.jet.csv == 0.8484 ){
-						number_bjets += 1;
-				} 
-		}
+    if (jetList.size() > 0){
+        ENUMERATE_IN(i, jet, jetList){
+            if (jet->pt() > 30){
+                number_jets += 1;
+            }
+            //NOTE
+            //0.8484 should be defined in the Selection headerfile or something
+            if( jet->pt() > 20 && jet->particle.jet.csv == 0.8484 ){
+                number_bjets += 1;
+            } 
+        }
+    }
+    
+		*get_value(&vars_int, "numb_jets")  = jetList.size();
 		*get_value(&vars_int, "numb_bjets")	 = number_bjets;
 
-		//////////////////////////////
-		//NOTE
-    //get trigger leg eff 
-    //TODO 
-    //separate flavor combinations
-    if(leptonList.size() >= 2 && fabs(*get_value(&vars_float, "mll") - 90) < 15 ){
-        update_tghist2d(leptonList[0].pt(), leptonList[0].eta(), 1.0, &leg1);
-        update_tghist2d(leptonList[1].pt(), leptonList[1].eta(), 1.0, &leg2);
-
-				if( triggerSelector->pass("HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*", fInfo->triggerBits) ){   
-				    if (triggerSelector->passObj("HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*", 1, leptonList[0].hltMatchBits) ) 
-                update_tghist2d(leptonList[0].pt(), leptonList[0].eta(), 1.0, &trig_leg1);
-
-            if (triggerSelector->passObj("HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_v*", 2, leptonList[1].hltMatchBits) )
-                update_tghist2d(leptonList[1].pt(), leptonList[1].eta(), 1.0, &trig_leg2);
-        } 
-    } 
-		
 	
+    //NOTE
+    //WWpt calculation
+    {
+        float wwpt = 0.0;
+        if (wwList.size() >=2){
+            wwpt = (wwList[0].p4() + wwList[1].p4()).Pt();
+            *get_value(&vars_float, "wwpt")  = wwpt;
+
+        }
+        
+    }
+    {
+        bool pass_trigger = true;
+        *get_value(&vars_int, "trigger_fired")  = 1;
+        if (fInfo->triggerBits != 0){
+            pass_trigger = false;
+            for(unsigned i = 0; i < single_trigger_arr.size(); i++){
+                pass_trigger |= triggerSelector->pass( single_trigger_arr[i], fInfo->triggerBits);
+            }
+            for(unsigned i = 0; i < double_trigger_arr.size(); i++){
+                pass_trigger |= triggerSelector->pass( double_trigger_arr[i], fInfo->triggerBits);
+            }
+        }
+        if (pass_trigger) *get_value(&vars_int, "trigger_fired")  = 0;
+    }
 
 
 
@@ -594,16 +554,21 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 		progress_update(&progressbar);
 		//////////////////////////////
 		//Number of Leptons cut
+    //TODO
+    //THIS IS TEMP
+    goto END;
 		END_RECORDING(nEvents, leptonList.size() < 2)
 
 
-		bool pass_trigger = false;
-		if (fInfo->triggerBits != 0){
-				for(unsigned i = 0; i < trigger_vector.size(); i++){
-						pass_trigger |= triggerSelector->pass( trigger_vector[i], fInfo->triggerBits);
-				}
-		}
-		END_RECORDING(nEvents, !pass_trigger)
+    {
+        bool pass_trigger = false;
+        if (fInfo->triggerBits != 0){
+            for(unsigned i = 0; i < trigger_vector.size(); i++){
+                pass_trigger |= triggerSelector->pass( trigger_vector[i], fInfo->triggerBits);
+            }
+        }
+        END_RECORDING(nEvents, !pass_trigger)
+    }
 
 		if (isRealData){ 
 				RunLumiRangeMap::RunLumiPairType rl( fInfo->runNum, fInfo->lumiSec);
@@ -613,11 +578,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 				END_RECORDING(nEvents, !lumiMask.HasRunLumi(rl))
 		}
 
-
+    END:
 	
 		//NOTE:
 		//end and update save structs	
-		update_buffers(&TKGfile);
+		//update_buffers(&TKGfile);
 		outTree->Fill();
     this->passedEvents++;
 		END_RECORDING(nEvents, true)

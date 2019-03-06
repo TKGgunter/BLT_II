@@ -162,11 +162,14 @@ std::string variables = "lep1_pt float;"
                         "met_phi float;"
                         "met_filterflag int;"
                         "met_filterflag_recommended int;"
+                        "met_filterflag_recommended_old int;"
                         "met_proj float;"
                         "met_proj_jetres float;"
                         "met_proj_jetscale_up float;"
                         "met_proj_jetscale_down float;"
                         "met_over_sET float;"
+
+                        "lepmet_pt float;"
 
                 //** Weight Variables begin here **//
 
@@ -234,9 +237,12 @@ std::string variables = "lep1_pt float;"
                         "process string;"
                         "process_decay string;"
 
-                //** WW specific Variables begin here **//
+                //** WW and TTbar specific Variables begin here **//
 
                         "wwpt float;"
+                        "ttbar1_pt float;"
+                        "ttbar2_pt float;"
+                        "ttbar_sf float;"
                 
                 //** Event ID Variables begin here **//
 
@@ -245,6 +251,12 @@ std::string variables = "lep1_pt float;"
                         "eventNumb int;"
                         "nPUmean float;"
                         "npv int;"
+
+                        "_pre_fTT float;"
+                        "_pre_fDY float;"
+
+                        "ewkcorr float;"
+                        "ewkcorre float;"
                         ; 
 
 
@@ -390,6 +402,10 @@ TH1F tt_pdf_plot;
 TH1F gen_lep_types;
 TH1F rf_gen_lep_types;
 
+
+TFile* fWWEWKCorrFile;
+TH1D *fhDWWEWKCorr;
+
 std::vector<std::string> double_trigger_arr = { 
      //"HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*",
      "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_v*",
@@ -401,6 +417,7 @@ std::vector<std::string> double_trigger_arr = {
      "HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_v*",
 
                  //DiElectron
+     "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ_v*", //NEW
      "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_v*",
      "HLT_DoubleEle24_22_eta2p1_WPLoose_Gsf_v*"
 };
@@ -707,6 +724,10 @@ void DemoAnalyzer::Begin(TTree *tree)
     stage_variables( &TKGfile );
   
     
+    printf("Setup WW ewk");
+    fWWEWKCorrFile = TFile::Open((cmssw_base + "/src/BLT_II/BLTAnalysis/data/WW_EWK_Corr.root").c_str());
+    fhDWWEWKCorr = (TH1D*)(fWWEWKCorrFile->Get("ratio_Ptlm")); 
+    assert(fhDWWEWKCorr); 
 
     printf("Setup weights/corrections\n");
     gRandom = new TRandom();
@@ -802,6 +823,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     
     tot_nEvents.Fill(1);
     nEvents.Fill( count_cuts );
+    count_cuts++;
 
 
     // Set default values for all variables
@@ -872,17 +894,15 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     avg_muon_pt_scalefactor /= (float)muonList.size();
 
     FOR_IN(electron, electronList){
+        
         if(isRealData){ 
             scaleData sdata = electronCorr.GetScaleData( &*electron, fInfo->runNum);
-            printf("%f ", (double)electron->pt());
             electron->particle.electron.pt *= sdata.scale;
-            printf("%f \n", (double)electron->pt());
         } else {
             float sFactor = electronCorr.GetSmearingFactor( &*electron, 0, 0);
-            printf("%f ", (double)electron->pt());
             electron->particle.electron.pt *= gRandom->Gaus(1, sFactor);
-            printf("%f \n", (double)electron->pt());
         }
+        
         leptonList.push_back(*electron);
     }
     tgSort(leptonList);
@@ -906,13 +926,22 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     //Do gen particle && gen jet stuff
     float gen_event_info_weight = 1.0;
     std::vector<TGPhysObject> wwList;
+    std::vector<TGPhysObject> ttbarList;
     std::vector<TGPhysObject> genLepList;
+    std::vector<TGPhysObject> genNeutrinoList;
     std::vector<TGPhysObject> genJetList;
 		*get_value(&vars_int,   "numb_genjets_24") = 0;
     {
         if(fGenParticleArr){
             wwSelection( wwList, fGenParticleArr);
             wwGenLepSelection( genLepList, fGenParticleArr);
+            wwGenNeutrinoSelection( genNeutrinoList, fGenParticleArr);
+            FOR_IN_fARR(it, fGenParticleArr, TGenParticle){
+                if (abs(it->pdgId) == 6 && it->status == 62) {
+                   ttbarList.push_back(it); 
+                }
+            }
+
             tgSort(genLepList);
         } ELSE_PRINT("fGenParticleArr is not available.");
 
@@ -973,6 +1002,15 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     //NOTE
     *get_value(&vars_int,   "npv")   = tot_npv;
 
+
+
+    //NOTE
+    //THIS IS UNSAFE AND IS DONE FOR SPEED UP PURPOSES. FEEL FREE TO REMOVE IF YOU ARE NOT COMFORTABLE
+    //
+    if (leptonList.size() < 2){
+        goto _END_NTUPLE_LABEL;
+    }
+
   
     //////////////////////////////
     //NOTE
@@ -985,10 +1023,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         //NOTE
         //Recommeneded by 
         //https://twiki.cern.ch/twiki/bin/viewauth/CMS/MissingETOptionalFilters
-        std::vector<int> flags = { kHBHENoiseFilter, kCSCTightHaloFilter, kHCALLaserEventFilter, kECALDeadCellTriggerPrimitiveFilter, kTrackingFailureFilter,
-                                   kEEBadScFilter, kECALLaserCorrFilter, kTrkPOGFilter_manystripclus53X,
-                                   kTrkPOGFilter_toomanystripclus53X, kTrkPOGFilter_logErrorTooManyClusters};
+        std::vector<int> flags = { kGoodVerticesFilter, kGlobalSuperTightHalo2016Filter, kHBHENoiseFilter, 
+                                   kHBHENoiseIsoFilter, kECALDeadCellTriggerPrimitiveFilter, kMuonBadTrackFilter,
+                                   kChargedHadronTrackResolutionFilter, kEEBadScFilter};
         FOR_IN(flag, flags){
+            //printf("%x \n", *flag);
             for( int n = 0; n < 32; n++){
                 if (*flag == pow(2, n)){
                     m_flag |= (*flag >> n) & ((fInfo->metFilterFailBits >> n) & 1); 
@@ -997,6 +1036,21 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
             }
         }
         *get_value(&vars_int,   "met_filterflag_recommended") = m_flag;
+        
+        uint32_t old_flag = 0;
+        std::vector<int> flags_old = { kHBHENoiseFilter, kCSCTightHaloFilter, kHCALLaserEventFilter, kECALDeadCellTriggerPrimitiveFilter, kTrackingFailureFilter,
+                                   kEEBadScFilter, kECALLaserCorrFilter, kTrkPOGFilter_manystripclus53X,
+                                   kTrkPOGFilter_toomanystripclus53X, kTrkPOGFilter_logErrorTooManyClusters};
+        FOR_IN(flag, flags){
+            //printf("%x \n", *flag);
+            for( int n = 0; n < 32; n++){
+                if (*flag == pow(2, n)){
+                    old_flag |= (*flag >> n) & ((fInfo->metFilterFailBits >> n) & 1); 
+                    break;
+                }
+            }
+        }
+        *get_value(&vars_int,   "met_filterflag_recommended_old") = old_flag;
     }
     if (leptonList.size() >= 2){ //MET Projected !!!
         
@@ -1394,196 +1448,210 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     *get_value(&vars_int, "dilepton_type_debug") =  *get_value(&vars_int, "dilepton_type"); 
     if (*get_value(&vars_int, "dilepton_type") > 1) *get_value(&vars_int, "dilepton_type") =  1;
 
+    {
+        TLorentzVector p4; 
+        p4.SetPtEtaPhiM(fInfo->pfMET, 0.0, fInfo->pfMETphi, 0.0);
+        *get_value(&vars_float, "lepmet_pt") = leptonList.size() >= 2 ? (leptonList[0].p4() + leptonList[1].p4() + p4).Pt(): -999.9;
+    }
 
     //////////////////////////////
     //NOTE
     //jet related stuffs
+    {
+        int number_bjets = 0;
+        int number_bjets_gen = 0;
 
-    int number_bjets = 0;
-    int number_bjets_gen = 0;
+        int number_jets = 0;
+        int number_jets_res = 0;
+        int number_jets_scale_up = 0;
+        int number_jets_scale_down = 0;
 
-    int number_jets = 0;
-    int number_jets_res = 0;
-    int number_jets_scale_up = 0;
-    int number_jets_scale_down = 0;
+        int number_jets_24 = 0;
+        int number_jets_24_res = 0;
+        int number_jets_24_scale_up = 0;
+        int number_jets_24_scale_down = 0;
 
-    int number_jets_24 = 0;
-    int number_jets_24_res = 0;
-    int number_jets_24_scale_up = 0;
-    int number_jets_24_scale_down = 0;
+        float HT                = 0.0;
+        float HT_res            = 0.0;
+        float HT_scale_up       = 0.0;
+        float HT_scale_down     = 0.0;
+        float tot_jetres        = 0.0;
+        float tot_jetscale_up   = 0.0;
+        float tot_jetscale_down = 0.0;
 
-    float HT                = 0.0;
-    float HT_res            = 0.0;
-    float HT_scale_up       = 0.0;
-    float HT_scale_down     = 0.0;
-    float tot_jetres        = 0.0;
-    float tot_jetscale_up   = 0.0;
-    float tot_jetscale_down = 0.0;
+        *get_value(&vars_float, "recoil")                 = 0;
+        *get_value(&vars_float, "recoil_res")             = 0;
+        *get_value(&vars_float, "recoil_scale_up")        = 0;
+        *get_value(&vars_float, "recoil_scale_down")      = 0;
 
-    *get_value(&vars_float, "recoil")                 = 0;
-    *get_value(&vars_float, "recoil_res")             = 0;
-    *get_value(&vars_float, "recoil_scale_up")        = 0;
-    *get_value(&vars_float, "recoil_scale_down")      = 0;
+        TLorentzVector recoil_vec;
+        if (leptonList.size() >= 2){
+            TLorentzVector metp4;
+            metp4.SetPtEtaPhiM(fInfo->pfMET, 0.0, fInfo->pfMETphi, 0.0);
+            recoil_vec                              = leptonList[0].p4() + leptonList[1].p4() + metp4;
+            *get_value(&vars_float, "recoil_old")   = recoil_vec.Pt();
+        } 
+        *get_value(&vars_float, "recoil_old_res")         = recoil_vec.Pt();  
+        *get_value(&vars_float, "recoil_old_scale_up")    = recoil_vec.Pt();
+        *get_value(&vars_float, "recoil_old_scale_down")  = recoil_vec.Pt();
 
-    TLorentzVector recoil_vec;
-    if (leptonList.size() >= 2){
-        TLorentzVector metp4;
-        metp4.SetPtEtaPhiM(fInfo->pfMET, 0.0, fInfo->pfMETphi, 0.0);
-        recoil_vec                              = leptonList[0].p4() + leptonList[1].p4() + metp4;
-        *get_value(&vars_float, "recoil_old")   = recoil_vec.Pt();
-    } 
-    *get_value(&vars_float, "recoil_old_res")         = recoil_vec.Pt();  
-    *get_value(&vars_float, "recoil_old_scale_up")    = recoil_vec.Pt();
-    *get_value(&vars_float, "recoil_old_scale_down")  = recoil_vec.Pt();
-
-    if (jetList.size() > 0){
-        auto _recoil = jetList[0].p4();
-        auto _recoil_res = jetList[0].p4();
-        auto _recoil_scale_up = jetList[0].p4();
-        auto _recoil_scale_down = jetList[0].p4();
-        ENUMERATE_IN(i, jet, jetList){
-            float _resolution_jet_pt_variation = jet_resolution_pt_variation(jet->p4());
-            float _scale_jet_pt_up = jet_scale_pt_variation(jet->p4(), 1.0);
-            float _scale_jet_pt_down = jet_scale_pt_variation(jet->p4(), -1.0);
-            
-            tot_jetres        += jet->pt() * (_resolution_jet_pt_variation - 1.0);
-            tot_jetscale_up   += jet->pt() * (_scale_jet_pt_up - 1.0);
-            tot_jetscale_down += jet->pt() * (_scale_jet_pt_down - 1.0);
-            if (i+1 <= 6){
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_pt", i+1); 
-                    *get_value(&vars_float, buffer) = jet->pt();
-                }
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_phi", i+1);  
-                    *get_value(&vars_float, buffer) = jet->phi();
-                }
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_eta", i+1);  
-                    *get_value(&vars_float, buffer) = jet->eta();
-                }
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_csv", i+1);  
-                    *get_value(&vars_float, buffer) = jet->particle.jet.csv;
-                }
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_flv", i+1);  
-                    *get_value(&vars_int, buffer) = jet->particle.jet.hadronFlavor;
-                }
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_res", i+1);  
-                    *get_value(&vars_float, buffer) = _resolution_jet_pt_variation;
-                }
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_scale_up", i+1); 
-                    *get_value(&vars_float, buffer) = _scale_jet_pt_up;
-                }
-                {
-                    char buffer[10];
-                    sprintf(buffer, "jet%i_scale_down", i+1); 
-                    *get_value(&vars_float, buffer) = _scale_jet_pt_down;
-                }
-
-            }
-            if( jet->pt() >= 30){
-                number_jets += 1;
-                HT += jet->pt();
-                if (i == 0) {} 
-                else  _recoil += jet->p4();
+        if (jetList.size() > 0){
+            auto _recoil = jetList[0].p4();
+            auto _recoil_res = jetList[0].p4();
+            auto _recoil_scale_up = jetList[0].p4();
+            auto _recoil_scale_down = jetList[0].p4();
+            ENUMERATE_IN(i, jet, jetList){
+                float _resolution_jet_pt_variation = jet_resolution_pt_variation(jet->p4());
+                float _scale_jet_pt_up = jet_scale_pt_variation(jet->p4(), 1.0);
+                float _scale_jet_pt_down = jet_scale_pt_variation(jet->p4(), -1.0);
                 
-                if (fabs(jet->eta()) < 2.4) number_jets_24 += 1;
-            }
-            if( jet->pt()*_resolution_jet_pt_variation >= 30 ){
-                number_jets_res += 1;
-                HT_res += jet->pt()*_resolution_jet_pt_variation;
+                tot_jetres        += jet->pt() * (_resolution_jet_pt_variation - 1.0);
+                tot_jetscale_up   += jet->pt() * (_scale_jet_pt_up - 1.0);
+                tot_jetscale_down += jet->pt() * (_scale_jet_pt_down - 1.0);
+                if (i+1 <= 6){
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_pt", i+1); 
+                        *get_value(&vars_float, buffer) = jet->pt();
+                    }
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_phi", i+1);  
+                        *get_value(&vars_float, buffer) = jet->phi();
+                    }
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_eta", i+1);  
+                        *get_value(&vars_float, buffer) = jet->eta();
+                    }
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_csv", i+1);  
+                        *get_value(&vars_float, buffer) = jet->particle.jet.csv;
+                    }
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_flv", i+1);  
+                        *get_value(&vars_int, buffer) = jet->particle.jet.hadronFlavor;
+                    }
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_res", i+1);  
+                        *get_value(&vars_float, buffer) = _resolution_jet_pt_variation;
+                    }
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_scale_up", i+1); 
+                        *get_value(&vars_float, buffer) = _scale_jet_pt_up;
+                    }
+                    {
+                        char buffer[10];
+                        sprintf(buffer, "jet%i_scale_down", i+1); 
+                        *get_value(&vars_float, buffer) = _scale_jet_pt_down;
+                    }
 
-                if (i == 0) _recoil_res *= _resolution_jet_pt_variation;
-                else  _recoil_res += jet->p4()*_resolution_jet_pt_variation;
+                }
+                if( jet->pt() >= 30){
+                    number_jets += 1;
+                    HT += jet->pt();
+                    if (i == 0) {} 
+                    else  _recoil += jet->p4();
+                    
+                    if (fabs(jet->eta()) < 2.4) number_jets_24 += 1;
+                }
+                if( jet->pt()*_resolution_jet_pt_variation >= 30 ){
+                    number_jets_res += 1;
+                    HT_res += jet->pt()*_resolution_jet_pt_variation;
 
-                if (fabs(jet->eta()) < 2.4) number_jets_24_res += 1;
-            }
-            if( jet->pt()*_scale_jet_pt_up >= 30 ){
-                number_jets_scale_up += 1;
-                HT_scale_up += jet->pt()*_scale_jet_pt_up;
+                    if (i == 0) _recoil_res *= _resolution_jet_pt_variation;
+                    else  _recoil_res += jet->p4()*_resolution_jet_pt_variation;
 
-                if (i == 0) _recoil_scale_up *= _scale_jet_pt_up;
-                else  _recoil_scale_up += jet->p4()*_scale_jet_pt_up;
+                    if (fabs(jet->eta()) < 2.4) number_jets_24_res += 1;
+                }
+                if( jet->pt()*_scale_jet_pt_up >= 30 ){
+                    number_jets_scale_up += 1;
+                    HT_scale_up += jet->pt()*_scale_jet_pt_up;
 
-                if (fabs(jet->eta()) < 2.4) number_jets_24_scale_up += 1;
-            }
-            if( jet->pt()*_scale_jet_pt_down >= 30 ){
-                number_jets_scale_down += 1;
-                HT_scale_down += jet->pt()*_scale_jet_pt_down;
+                    if (i == 0) _recoil_scale_up *= _scale_jet_pt_up;
+                    else  _recoil_scale_up += jet->p4()*_scale_jet_pt_up;
 
-                if (i == 0) _recoil_scale_down *= _scale_jet_pt_down;
-                else  _recoil_scale_down += jet->p4()*_scale_jet_pt_down;
+                    if (fabs(jet->eta()) < 2.4) number_jets_24_scale_up += 1;
+                }
+                if( jet->pt()*_scale_jet_pt_down >= 30 ){
+                    number_jets_scale_down += 1;
+                    HT_scale_down += jet->pt()*_scale_jet_pt_down;
 
-                if (fabs(jet->eta()) < 2.4) number_jets_24_scale_down += 1;
+                    if (i == 0) _recoil_scale_down *= _scale_jet_pt_down;
+                    else  _recoil_scale_down += jet->p4()*_scale_jet_pt_down;
+
+                    if (fabs(jet->eta()) < 2.4) number_jets_24_scale_down += 1;
+                }
+                //NOTE
+                //0.8484 is the Mid working point for bjet identification using the cssv alg.
+                //Maybe this should be defined in the Selection headerfile or something
+                
+                //TODO test the following
+                //if( jet->particle.jet.csv >= 0.8484 && fabs(jet->particle.jet.eta) <= 2.4){
+                if( jet->particle.jet.csv >= 0.8484 ){
+                    number_bjets += 1;
+                } 
+                //if( abs(jet->particle.jet.hadronFlavor) == 5 && fabs(jet->particle.jet.eta) <= 2.4){
+                if( abs(jet->particle.jet.hadronFlavor) == 5 ){ //&& fabs(jet->particle.jet.eta) <= 2.4){
+                    number_bjets_gen += 1;
+                } 
             }
             //NOTE
-            //0.8484 is the Mid working point for bjet identification using the cssv alg.
-            //Maybe this should be defined in the Selection headerfile or something
-            if( jet->particle.jet.csv >= 0.8484 ){
-                number_bjets += 1;
-            } 
-            if( abs(jet->particle.jet.hadronFlavor) == 5 ){
-                number_bjets_gen += 1;
-            } 
+            //Why do we check for recoil pt being greater than 30GeV we already do a check when we add recoil pts. 
+            //Look above.
+            *get_value(&vars_float, "recoil")                 = _recoil.Pt();
+            *get_value(&vars_float, "recoil_res")             = _recoil_res.Pt();
+            *get_value(&vars_float, "recoil_scale_up")        = _recoil_scale_up.Pt();
+            *get_value(&vars_float, "recoil_scale_down")      = _recoil_scale_down.Pt();
+
+            *get_value(&vars_float, "recoil_old_res")         = (recoil_vec - _recoil + _recoil_res).Pt();
+            *get_value(&vars_float, "recoil_old_scale_up")    = (recoil_vec - _recoil + _recoil_scale_up).Pt();
+            *get_value(&vars_float, "recoil_old_scale_down")  = (recoil_vec - _recoil + _recoil_scale_down).Pt();
         }
-        //NOTE
-        //Why do we check for recoil pt being greater than 30GeV we already do a check when we add recoil pts. 
-        //Look above.
-        *get_value(&vars_float, "recoil")                 = _recoil.Pt();
-        *get_value(&vars_float, "recoil_res")             = _recoil_res.Pt();
-        *get_value(&vars_float, "recoil_scale_up")        = _recoil_scale_up.Pt();
-        *get_value(&vars_float, "recoil_scale_down")      = _recoil_scale_down.Pt();
+        *get_value(&vars_int,   "numb_jets")           = number_jets;
+        *get_value(&vars_int,   "numb_jets_res")       = number_jets_res;
+        *get_value(&vars_int,   "numb_jets_scale_up")  = number_jets_scale_up;
+        *get_value(&vars_int,   "numb_jets_scale_down")  = number_jets_scale_down;
 
-        *get_value(&vars_float, "recoil_old_res")         = (recoil_vec - _recoil + _recoil_res).Pt();
-        *get_value(&vars_float, "recoil_old_scale_up")    = (recoil_vec - _recoil + _recoil_scale_up).Pt();
-        *get_value(&vars_float, "recoil_old_scale_down")  = (recoil_vec - _recoil + _recoil_scale_down).Pt();
+        *get_value(&vars_int,   "numb_jets_24")             = number_jets_24;
+        *get_value(&vars_int,   "numb_jets_24_res")         = number_jets_24_res;
+        *get_value(&vars_int,   "numb_jets_24_scale_up")    = number_jets_24_scale_up;
+        *get_value(&vars_int,   "numb_jets_24_scale_down")  = number_jets_24_scale_down;
+
+        *get_value(&vars_int,   "numb_bjets")     = number_bjets;
+        *get_value(&vars_int,   "numb_bjets_gen") = number_bjets_gen;
+        *get_value(&vars_float, "HT")             = HT;
+        *get_value(&vars_float, "HT_res")         = HT_res;
+        *get_value(&vars_float, "HT_scale_up")    = HT_scale_up;
+        *get_value(&vars_float, "HT_scale_down")  = HT_scale_down;
+
+
+
+        if ( leptonList.size() >= 2 && jetList.size() > 0){
+            *get_value(&vars_float, "dPhilljet")  = jetList[0].pt() > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
+            *get_value(&vars_float, "dPhimetjet") = jetList[0].pt() > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
+
+            *get_value(&vars_float, "dPhilljet_res")  = jetList[0].pt() * *get_value(&vars_float, "jet1_res") > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
+            *get_value(&vars_float, "dPhimetjet_res") = jetList[0].pt() * *get_value(&vars_float, "jet1_res") > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
+
+            *get_value(&vars_float, "dPhilljet_scale_up")  = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_up") > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
+            *get_value(&vars_float, "dPhimetjet_scale_up") = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_up") > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
+            *get_value(&vars_float, "dPhilljet_scale_down")  = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_down") > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
+            *get_value(&vars_float, "dPhimetjet_scale_down") = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_down") > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
+        }
+        *get_value(&vars_float, "met_jetres")           = fInfo->pfMET - tot_jetres;
+        *get_value(&vars_float, "met_jetscale_up")      = fInfo->pfMET - tot_jetscale_up;
+        *get_value(&vars_float, "met_jetscale_down")    = fInfo->pfMET - tot_jetscale_down;
     }
-    *get_value(&vars_int,   "numb_jets")           = number_jets;
-    *get_value(&vars_int,   "numb_jets_res")       = number_jets_res;
-    *get_value(&vars_int,   "numb_jets_scale_up")  = number_jets_scale_up;
-    *get_value(&vars_int,   "numb_jets_scale_down")  = number_jets_scale_down;
-
-    *get_value(&vars_int,   "numb_jets_24")             = number_jets_24;
-    *get_value(&vars_int,   "numb_jets_24_res")         = number_jets_24_res;
-    *get_value(&vars_int,   "numb_jets_24_scale_up")    = number_jets_24_scale_up;
-    *get_value(&vars_int,   "numb_jets_24_scale_down")  = number_jets_24_scale_down;
-
-    *get_value(&vars_int,   "numb_bjets")     = number_bjets;
-    *get_value(&vars_int,   "numb_bjets_gen") = number_bjets_gen;
-    *get_value(&vars_float, "HT")             = HT;
-    *get_value(&vars_float, "HT_res")         = HT_res;
-    *get_value(&vars_float, "HT_scale_up")    = HT_scale_up;
-    *get_value(&vars_float, "HT_scale_down")  = HT_scale_down;
 
 
 
 
-    if ( leptonList.size() >= 2 && jetList.size() > 0){
-        *get_value(&vars_float, "dPhilljet")  = jetList[0].pt() > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
-        *get_value(&vars_float, "dPhimetjet") = jetList[0].pt() > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
 
-        *get_value(&vars_float, "dPhilljet_res")  = jetList[0].pt() * *get_value(&vars_float, "jet1_res") > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
-        *get_value(&vars_float, "dPhimetjet_res") = jetList[0].pt() * *get_value(&vars_float, "jet1_res") > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
-
-        *get_value(&vars_float, "dPhilljet_scale_up")  = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_up") > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
-        *get_value(&vars_float, "dPhimetjet_scale_up") = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_up") > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
-        *get_value(&vars_float, "dPhilljet_scale_down")  = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_down") > 30 ? fabs(deltaPhi((leptonList[0].p4() + leptonList[1].p4()).Phi() - jetList[0].phi())) : -999.99;
-        *get_value(&vars_float, "dPhimetjet_scale_down") = jetList[0].pt() * *get_value(&vars_float, "jet1_scale_down") > 30 ? fabs(deltaPhi( fInfo->pfMETphi - jetList[0].phi())) : -999.99;
-    }
-    *get_value(&vars_float, "met_jetres")           = fInfo->pfMET - tot_jetres;
-    *get_value(&vars_float, "met_jetscale_up")      = fInfo->pfMET - tot_jetscale_up;
-    *get_value(&vars_float, "met_jetscale_down")    = fInfo->pfMET - tot_jetscale_down;
 
     if (leptonList.size() >= 2){
         TLorentzVector metp4;
@@ -1639,6 +1707,56 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
             *get_value(&vars_int, "genlep1_type")  = abs(genLepList[0].particle.genparticle.pdgId);
             *get_value(&vars_int, "genlep2_type")  = abs(genLepList[1].particle.genparticle.pdgId);
         }
+        if(genLepList.size()      >= 2 && 
+           genNeutrinoList.size() >= 2 &&
+           wwList.size()          >= 2){// Electro Weak corrections
+            
+            //NOTE
+            //This could prob be move outside of the selection loop
+            fhDWWEWKCorr->SetDirectory(0);
+
+
+            float theEWKCorr = 1.0; 
+            float theEWKCorrE = 1.0;
+            float the_rhoWW = 0.0; 
+            float theLeptonHT = genLepList[0].pt() + genLepList[1].pt() + genNeutrinoList[0].pt() + genNeutrinoList[1].pt();
+            auto the_rhoP4 =  wwList[0].p4() + wwList[1].p4();
+
+            if(theLeptonHT > 0) the_rhoWW = the_rhoP4.Pt()/theLeptonHT;
+
+            auto lepNegGen = genLepList[0].q() == -1 ? genLepList[0]  : genLepList[1];
+            if(lepNegGen.pt() > 0 && the_rhoWW <= 0.3){
+                Int_t EWKValbin =  fhDWWEWKCorr->GetXaxis()->FindBin(TMath::Min((float)lepNegGen.pt(), (float)499.999));
+
+                if(EWKValbin >= 0) theEWKCorr  =  fhDWWEWKCorr->GetBinContent(EWKValbin);
+                if(EWKValbin >= 0) theEWKCorrE =  1.0+ fhDWWEWKCorr->GetBinError(EWKValbin) / fhDWWEWKCorr->GetBinContent(EWKValbin);
+            }
+            *get_value(&vars_float, "ewkcorr") = theEWKCorr;
+            *get_value(&vars_float, "ewkcorre") = theEWKCorrE;
+
+            *get_value(&vars_float, "weight") *= theEWKCorr;
+        }
+
+
+
+    }
+
+    //NOTE
+    //TTbar pt 
+    {
+        if (ttbarList.size() >= 2 ){
+            *get_value(&vars_float, "ttbar1_pt")  = ttbarList[0].pt();
+            *get_value(&vars_float, "ttbar2_pt")  = ttbarList[1].pt();
+            //TODO
+            // This should be removed to the upper level
+
+            double _sf  = exp(0.0615 - 0.0005*ttbarList[0].pt());
+            _sf *= exp(0.0615 - 0.0005*ttbarList[1].pt());
+
+            *get_value(&vars_float, "ttbar_sf") =  powf(_sf, 0.5);
+            *get_value(&vars_float, "weight")  *=  powf(_sf, 0.5);
+
+        }
     }
 
    
@@ -1664,6 +1782,9 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 						}
 
 				}
+
+        *get_value(&vars_float, "_pre_fTT") = scores.tt;
+        *get_value(&vars_float, "_pre_fDY") = scores.dy;
 		}
  
 
@@ -1677,9 +1798,20 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         gen_lep_types.Fill( genlep1 + genlep2  - 20 + _result);
 
 				auto scores = get_rfscore();
-        if (scores.dy > 0.96 && scores.tt > 0.6) rf_gen_lep_types.Fill( genlep1 + genlep2 - 20 + _result );
+        if (scores.dy > 0.96 && scores.tt > 0.6 &&
+            leptonList.size() >= 2 && 
+            *get_value(&vars_float, "lep1_pt") > 25 &&
+            *get_value(&vars_float, "lep2_pt") > 20 &&
+            *get_value(&vars_float, "mll") > 12 &&
+            *get_value(&vars_int, "met_filterflag_recommended") == 0 
+            )
+             rf_gen_lep_types.Fill( genlep1 + genlep2 - 20 + _result );
     }
 
+
+
+
+    _END_NTUPLE_LABEL: ;
     //////////   PROGRESS BAR        ///////////////////
     if (initialized_progressbar) progress_update(&progressbar);
 

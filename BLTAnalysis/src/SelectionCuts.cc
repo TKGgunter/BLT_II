@@ -136,9 +136,10 @@ void electronSelection(std::vector<TGPhysObject> &elecList, TClonesArray* electr
 	for(Int_t i = 0; i < electrons->GetEntries(); i++){
 		baconhep::TElectron* electron = (baconhep::TElectron*) electrons->At(i);
 
-		for( unsigned int j = 0; j < 8; ++j ){
+		for( unsigned int j = 0; j < 7; ++j ){
 			if( fabs(electron->scEta) > etaBins[j] && fabs(electron->scEta) < etaBins[j+1] ){
 				iEta = j;
+        break;
 			}
 		}
 
@@ -202,9 +203,10 @@ void looseelectronSelection( std::vector<TGPhysObject> &elecList, TClonesArray* 
 	for(Int_t i = 0; i < electrons->GetEntries(); i++){
 		baconhep::TElectron* electron = (baconhep::TElectron*) electrons->At(i);
 
-		for( unsigned int j = 0; j < 8; ++j ){
+		for( unsigned int j = 0; j < 7; ++j ){
 			if( fabs(electron->scEta) > etaBins[j] && fabs(electron->scEta) < etaBins[j+1] ){
 				iEta = j;
+        break;
 			}
 		}
 
@@ -301,6 +303,23 @@ void wwGenLepSelection(std::vector<TGPhysObject> &genLepList, TClonesArray* gen_
 		}
 }
 
+void wwGenNeutrinoSelection(std::vector<TGPhysObject> &genNeutrinoList, TClonesArray* gen_particles){
+		int id = 24; //This is the W boson pdg id code
+
+		FOR_IN_fARR(particle, gen_particles, baconhep::TGenParticle){
+				if( particle == NULL){
+            continue;
+				}
+
+				if( abs(particle->pdgId ) == 12 || abs(particle->pdgId) == 14 || abs(particle->pdgId == 16) ){
+
+
+            if (particle->parent < 0) continue;
+            int pdgId = abs( ((baconhep::TGenParticle*)gen_particles->At(particle->parent))->pdgId );
+            if( pdgId == id )  genNeutrinoList.push_back(TGPhysObject(particle));
+				}
+		}
+}
 
 
 
