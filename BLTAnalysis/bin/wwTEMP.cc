@@ -376,7 +376,7 @@ std::vector<std::string> else_print_messages;
 
 
 
-
+std::string ascii = "#Run number, lumi number, event number, lepton category(mm = 0 ee = 1 and em == 2), event weight, MC normalization, PU, lep1, lep2, trigger, EWK , number of jets\n";
 
 //////////////////////////////////////
 //CLEANUP: 
@@ -1373,9 +1373,8 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         float pu_weight      =   *get_value(&vars_float, "pu_weight"); 
         float lep1_weight    =   *get_value(&vars_float, "lep1_weight");
         float lep2_weight    =   *get_value(&vars_float, "lep2_weight");
-        float bjet_weight    =   *get_value(&vars_float, "bjet_weight");
         float trigger_weight =   *get_value(&vars_float, "trigger_weight");
-        *get_value(&vars_float, "weight")  = pu_weight * lep1_weight * lep2_weight * bjet_weight * trigger_weight;
+        *get_value(&vars_float, "weight")  = pu_weight * lep1_weight * lep2_weight * trigger_weight;
         if(isRealData){ 
             *get_value(&vars_float, "weight")  = 1.0;
         }
@@ -1834,10 +1833,15 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     //Z mass cut
     {   //NOTE
         //This was changed recently might not be working as expected stay vigilant
-        bool  same_flavor = *get_value(&vars_int, "lep1_type")  == *get_value(&vars_int, "lep2_type");
         float mll = *get_value(&vars_float, "mll");
-        bool cut = ( fabs(mll - 91.0) < 10 ) && same_flavor;
+        bool cut = ( fabs(mll - 91.18) < 15 );
         END_RECORDING(nEvents, cut, "Zmass")
+    }
+    { 
+        bool lep1_pt = *get_value(&vars_float, "lep1_pt") < 25.0;
+        bool lep2_pt = *get_value(&vars_float, "lep2_pt") < 20.0;
+        bool lep = lep1_pt || lep2_pt;
+        END_RECORDING(nEvents, lep, "lep pt")
     }
 
     //////////////////////////////
@@ -1888,6 +1892,39 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     } else {
         n_emu++;
     }
+
+   //#Run number, lumi number, event number, lepton category(mm = 0 ee = 1 and em == 2), event weight, MC normalization, PU, lep1, lep2, trigger, EWK , number of jets
+    char buffer[256];
+    for (int i = 0; i < 255; i++){
+        buffer[i] = '\0';
+    } 
+   
+    int runnumber = fInfo->runNum;
+    int lumisection = fInfo->lumiSec;
+    int eventnumber = fInfo->evtNum;
+    int lep_category = *get_value(&vars_int, "dilepton_type");
+    if (lep_category == -2) {
+        lep_category = 1;
+    }
+    else if ( lep_category == -1) {
+        lep_category = 0;
+    }
+    else{
+        lep_category = 2;
+    }
+    double event_weight = *get_value(&vars_float, "weight");
+    int numb_jets = *get_value(&vars_int, "numb_jets");
+    float norm_w = (35.9e3 * (118.7 - 3.974) * pow( (3*.1086), 2) / 1998956.);
+    float pu_weight = *get_value(&vars_float, "pu_weight");
+    float trigger_weight = *get_value(&vars_float, "trigger_weight");
+    float lep1_weight = *get_value(&vars_float, "lep1_weight");
+    float lep2_weight = *get_value(&vars_float, "lep2_weight");
+    float ewk = *get_value(&vars_float, "ewkcorr");
+    float bjet_weight = *get_value(&vars_float, "bjet_weight");
+
+    sprintf(buffer, "%d, %d, %d, %d, %f, %f, %f, %f, %f, %f, %f, %f, %d\n", runnumber, lumisection, eventnumber, lep_category, event_weight * norm_w, norm_w, pu_weight, lep1_weight, lep2_weight, trigger_weight, ewk, bjet_weight, numb_jets); 
+    ascii.append(buffer);
+
     this->passedEvents++;
     END_RECORDING(nEvents, true, "COMPLETE")
 }
@@ -1928,7 +1965,9 @@ void DemoAnalyzer::ReportPostTerminate()
 //    std::cout << " GEN       : Muons "  << gMuons << "\t" << "Electrons " << gElectrons << std::endl;
     std::cout << "  ============================================================" << std::endl;
 
-
+    auto ascii_file = fopen("ascii_thoth.txt", "w");
+    fprintf(ascii_file, ascii.c_str());
+    fclose(ascii_file);
     //TKGfile.header.notes = construct_note(sdf_notes);
     //strcat(TKGfile.header.notes.characters, "TOTAL:");
     //strcat(TKGfile.header.notes.characters, std::to_string(this->totalEvents).c_str());

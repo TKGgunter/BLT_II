@@ -121,12 +121,100 @@ void loosemuonSelection( std::vector<TGPhysObject> &muonList, TClonesArray* muon
 	}
 }
 
+/*
+Electron definition: 
+|eta| < 2.5
+Tight EGamma POG WP for 2016 data 
+It also includes IP cuts to reject non-prompt background: 
+if (|eta| < = 1.479) 
+    then dz < 0.1, dxy < 0.05. 
+Else: dz < 0.2, dxy < 0.1, using suggested POG values
 
+Trigger safe cuts following the EGamma POG recommendations (https://twiki.cern.ch/twiki/bin/viewauth/CMS/CutBasedElectronIdentificationRun2#Working_points_for_2016_data_for)
+expectedMissingInnerHits == 0. This requirements helps rejecting conversion background, it has also been used in analyses like HWW and same-sign WW
+*/
+void tightelectronSelection(std::vector<TGPhysObject> &elecList, TClonesArray* electrons, float rhoFactor){
+	int iEta = 0;
+	float etaBins[8] = {0., 1., 1.479, 2.0, 2.2, 2.3, 2.4, 2.5};
+//TODO
+	float EAEL[7] = {0.13, 0.14, 0.07, 0.09, 0.11, 0.11, 0.14}; //NEEDS TO BE UPDATED
+//https://github.com/ikrav/cmssw/blob/egm_id_80X_v1/RecoEgamma/ElectronIdentification/data/Summer16/effAreaElectrons_cone03_pfNeuHadronsAndPhotons_80X.txt
+
+	for(Int_t i = 0; i < electrons->GetEntries(); i++){
+		baconhep::TElectron* electron = (baconhep::TElectron*) electrons->At(i);
+
+		for( unsigned int j = 0; j < 7; ++j ){
+			if( fabs(electron->scEta) > etaBins[j] && fabs(electron->scEta) < etaBins[j+1] ){
+				iEta = j;
+        break;
+			}
+		}
+
+		float combIso = electron->chHadIso + std::max(0., (double)electron->neuHadIso + electron->gammaIso - rhoFactor * EAEL[iEta]);
+		float sumPfIso = combIso / electron->pt;
+		float invE_invP = fabs(1./ (electron->eoverp * electron->pt) - electron->eoverp * 1./ (electron->eoverp * electron->pt));
+	
+		//Barrel Region////////////////
+		if(fabs(electron->scEta) <= elEtaEB ){
+
+			if(	fabs(electron->eta) < elEta &&
+					electron->pt > elPt &&
+					electron->sieie								< elSigmaIEtaIEtaEB &&
+					electron->dEtaInSeed					< elEtaInSeedEB  &&
+					fabs(electron->dPhiIn)				< 0.020          &&
+          electron->hovere							< elHadOverEmEB  &&
+					sumPfIso											< elSumPFIsoEB   &&
+					invE_invP											< elInvE_InvPEB  &&
+					electron->nMissingHits				<= 0             && 
+					!electron->isConv && 
+					fabs(electron->d0)						< elDxyEB        &&
+					fabs(electron->dz)						< elDzEB         &&
+          electron->ecalIso / electron->pt    < 0.16           &&
+          electron->hcalIso / electron->pt    < 0.12           &&
+          electron->trkIso  / electron->pt    < 0.08
+
+				)      
+      {                                                                                 
+        //float temp_1 = electron->ecalIso + electron->gammaIso - rhoFactor*0.165;
+        //float temp_2 = electron->hcalIso + electron->neuHadIso - rhoFactor*0.165;
+        //printf("Electron: %f %f %f %f\n", std::max(electron->ecalIso, temp_1)/electron->pt,
+        //                                  electron->ecalIso/electron->pt,
+        //                                  temp_1, temp_2);
+        elecList.push_back(TGPhysObject(electron));
+      } 
+    }
+		//////////////////////////
+		//End Cap region//////////
+		else if(fabs(electron->scEta) > elEtaEE){
+
+      if(	fabs(electron->eta) < elEta               && 
+					electron->pt > elPt                       &&
+					electron->sieie < elSigmaIEtaIEtaEE       &&
+					fabs(electron->dEtaIn) < elSCDeltaEtaInEE && 
+          fabs(electron->dPhiIn) < elSCDeltaPhiInEE &&
+          electron->hovere  < elHadOverEmEE         &&
+          sumPfIso < elSumPFIsoEE &&
+					invE_invP < elInvE_InvPEE &&
+					electron->nMissingHits <= 0 &&			
+					!electron->isConv && 
+        	fabs(electron->d0) < elDxyEE              &&
+        	fabs(electron->dz) < elDzEE               &&
+          electron->ecalIso  / electron->pt   < 0.12      &&
+          electron->hcalIso  / electron->pt   < 0.12      &&
+          electron->trkIso   / electron->pt   < 0.08
+				)         
+      {
+        elecList.push_back(TGPhysObject(electron));
+      }
+    }
+    else;
+	}	
+
+}
 
 
 //Electron Selection
 void electronSelection(std::vector<TGPhysObject> &elecList, TClonesArray* electrons, float rhoFactor){
-
 	int iEta = 0;
 	float etaBins[8] = {0., 1., 1.479, 2.0, 2.2, 2.3, 2.4, 2.5};
 //TODO

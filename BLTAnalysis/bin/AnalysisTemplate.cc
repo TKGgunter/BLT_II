@@ -515,7 +515,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         }
     }
     
-		*get_value(&vars_int, "numb_jets")  = jetList.size();
+		*get_value(&vars_int, "numb_jets")  = number_jets;
 		*get_value(&vars_int, "numb_bjets")	 = number_bjets;
 
 	

@@ -40,7 +40,7 @@ float muDz										=	0.5;
 float elEtaEB									= 1.479;
 float elSigmaIEtaIEtaEB				= 0.00998;
 float elEtaInSeedEB						= 0.00308;
-float elDeltaPhiInEB					=	0.0816;
+float elDeltaPhiInEB					=	0.0816; //Tight selection is different
 float elHadOverEmEB						= 0.0414;
 float elSumPFIsoEB						= 0.0588;
 float elInvE_InvPEB						= 0.0129;
@@ -121,6 +121,7 @@ bool test_bits_(unsigned int bits, unsigned int test);
 void jetSelection( std::vector<TGPhysObject> &jetList , TClonesArray* jets, std::vector<TGPhysObject> &leptonList);
 void muonSelection( std::vector<TGPhysObject> &muonList, TClonesArray* muons);
 void electronSelection( std::vector<TGPhysObject> &elecList, TClonesArray* electrons, float rhoFactor);
+void tightelectronSelection( std::vector<TGPhysObject> &elecList, TClonesArray* electrons, float rhoFactor);
 void loosemuonSelection( std::vector<TGPhysObject> &muonList, TClonesArray* muons);
 void looseelectronSelection( std::vector<TGPhysObject> &elecList, TClonesArray* electrons, float rhoFactor);
 
