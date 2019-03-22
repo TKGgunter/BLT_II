@@ -184,6 +184,7 @@ WeightUtils::WeightUtils() //std::string dataPeriod, std::string selection, bool
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/", &_trigger_muonelectron_highleg);
 				*/
 				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/ditriggers.txt", &_trigger_dilepton);
+				read_csv(cmssw_base + "/src/BLT_II/BLTAnalysis/data/electrons_cut_WP_Tight80X.txt", &_tight_electron);
 			
 		}
 }
@@ -562,6 +563,54 @@ WeightAndSigma WeightUtils::GetElectronTriggerEff(TLorentzVector electron1)
 		return {trigger_sf, 0.0, 0.0};
 }
 
+WeightAndSigma WeightUtils::GetElectronTightRecoEff(TLorentzVector electron)
+{
+
+    float pt = electron.Pt();
+    float eta = electron.Eta();
+
+		auto etamin  =  *get_column(&_tight_electron, "eta1");
+		auto etamax  =  *get_column(&_tight_electron, "eta2");
+		auto ptmin   =  *get_column(&_tight_electron, "pt1");
+		auto ptmax   =  *get_column(&_tight_electron, "pt2");
+
+		auto eff_in_data   =  *get_column(&_tight_electron, "eff_data");
+		auto eff_in_mc     =  *get_column(&_tight_electron, "eff_mc");
+
+		auto  sys0  =  *get_column(&_tight_electron, "sys0");
+		auto  sys1  =  *get_column(&_tight_electron, "sys1");
+		auto  sys2  =  *get_column(&_tight_electron, "sys2");
+		auto  sys3  =  *get_column(&_tight_electron, "sys3");
+
+    int index = -999;
+    for (unsigned int  i = 0; i < etamin.size(); i++){
+        if ( eta >= etamin[i] &&  eta < etamax[i] &&
+            pt < ptmin[i]     && pt < 10){
+            index = i;
+            break;
+        }
+        if ( eta >= etamin[i] &&  eta < etamax[i] &&
+            pt > 500 && pt > ptmax[i] ){
+            index = i;
+            break;
+        }
+        if ( eta >= etamin[i] &&  eta < etamax[i] &&
+            pt >= ptmin[i] &&  pt < ptmax[i]){
+            index = i;
+            break;
+        }
+    } 
+    if (index == -999) printf("TEMP:::  %f  %f We have a problem!!!!\n", pt, eta); 
+
+    WeightAndSigma w;
+    w.nominal = eff_in_data[index] / eff_in_mc[index]; 
+    //NOTE
+    //I need to double check this 
+    w.up   = w.nominal + powf(powf(sys0[index], 2.) + powf(sys1[index], 2.) + powf(sys2[index], 2.) + powf(sys3[index], 2.), 0.5) ; 
+    w.down = w.nominal - powf(powf(sys0[index], 2.) + powf(sys1[index], 2.) + powf(sys2[index], 2.) + powf(sys3[index], 2.), 0.5) ; 
+    
+    return w;
+}
 WeightAndSigma WeightUtils::GetElectronRecoEff(TLorentzVector electron) const
 {
 
@@ -585,45 +634,6 @@ WeightAndSigma WeightUtils::GetElectronRecoEff(TLorentzVector electron) const
 				reco_sf   *= _elSF_reco.GetBinContent(etaBin, 1);
 				reco_error = _elSF_reco.GetBinError(etaBin, 1);
 		}
-/*
-		{
-		//`/tthome/ksung/cms/Analysis/12/CMSSW_8_0_20/src/DMSAna/ttDM/limits/LeptonEffUtils.hh`
-		//
-				float eta = electron.Eta();
-				if     (eta <-2.5   ) { reco_sf *= 1; }
-				else if(eta <-2.45  ) { reco_sf *= 1.3176; }
-				else if(eta <-2.4   ) { reco_sf *= 1.11378; }
-				else if(eta <-2.3   ) { reco_sf *= 1.02463; }
-				else if(eta <-2.2   ) { reco_sf *= 1.01364; }
-				else if(eta <-2     ) { reco_sf *= 1.00728; }
-				else if(eta <-1.8   ) { reco_sf *= 0.994819; }
-				else if(eta <-1.63  ) { reco_sf *= 0.994786; }
-				else if(eta <-1.566 ) { reco_sf *= 0.991632; }
-				else if(eta <-1.4442) { reco_sf *= 0.963128; }
-				else if(eta <-1.2   ) { reco_sf *= 0.989701; }
-				else if(eta <-1     ) { reco_sf *= 0.985656; }
-				else if(eta <-0.6   ) { reco_sf *= 0.981595; }
-				else if(eta <-0.4   ) { reco_sf *= 0.984678; }
-				else if(eta <-0.2   ) { reco_sf *= 0.981614; }
-				else if(eta < 0     ) { reco_sf *= 0.980433; }
-				else if(eta < 0.2   ) { reco_sf *= 0.984552; }
-				else if(eta < 0.4   ) { reco_sf *= 0.988764; }
-				else if(eta < 0.6   ) { reco_sf *= 0.987743; }
-				else if(eta < 1     ) { reco_sf *= 0.987743; }
-				else if(eta < 1.2   ) { reco_sf *= 0.987743; }
-				else if(eta < 1.4442) { reco_sf *= 0.98768; }
-				else if(eta < 1.566 ) { reco_sf *= 0.967598; }
-				else if(eta < 1.63  ) { reco_sf *= 0.989627; }
-				else if(eta < 1.8   ) { reco_sf *= 0.992761; }
-				else if(eta < 2     ) { reco_sf *= 0.991761; }
-				else if(eta < 2.2   ) { reco_sf *= 0.99794; }
-				else if(eta < 2.3   ) { reco_sf *= 1.00104; }
-				else if(eta < 2.4   ) { reco_sf *= 0.989507; }
-				else if(eta < 2.45  ) { reco_sf *= 0.970519; }
-				else if(eta < 2.5   ) { reco_sf *= 0.906667; }
-				else                  { reco_sf *= 1; }
-		}
-*/
 
 
     std::vector<float> binningEta =  {-2.5, -2.0, -1.556, -1.442, -0.8, 0., 0.8, 1.442, 1.556, 2., 2.5};

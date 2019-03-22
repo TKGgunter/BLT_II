@@ -761,6 +761,15 @@ void DemoAnalyzer::Begin(TTree *tree)
 		load_forest( cmssw_base + "/src/BLT_II/BLTAnalysis/data/rfs/rfDY", &DYforest);
 		//printf("Drell Yan forest\n");
 		//print_forest(&DYforest);	
+    
+    //NOTE
+    //THIS IS A TEST TO MAKE SURE NEW ELECTRON WEIGHTS LOAD
+    //PLZ REMOVE AFTER TEST IS COMPLETE
+    //CSV temp_csv;
+    //read_csv( cmssw_base + "/src/BLT_II/BLTAnalysis/data/electrons_cut_WP_Tight80X.txt", &temp_csv);
+    //print_csv(&temp_csv);
+    //exit(0);
+
 
 
 		init_tghist(-0.1, 99.9, 100, &init_pdfhist);
@@ -1157,7 +1166,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                 
             }
             else if (leptonList[0].type_flag == ELECTRON){
-                lep1_reco_weights    = weights.GetElectronRecoEff(leptonList[0].p4());
+                lep1_reco_weights    = weights.GetElectronTightRecoEff(leptonList[0].p4());
                 lep1_trigger_weights = weights.GetElectronTriggerEff( leptonList[0].p4());
             } else{}
             *get_value(&vars_float, "lep1_reco_weight")          = lep1_reco_weights.nominal;
@@ -1188,7 +1197,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                 
             }
             else if (leptonList[1].type_flag == ELECTRON){
-                lep2_reco_weights    = weights.GetElectronRecoEff(leptonList[1].p4());
+                lep2_reco_weights    = weights.GetElectronTightRecoEff(leptonList[1].p4());
                 lep2_trigger_weights = weights.GetElectronTriggerEff(leptonList[1].p4() );
             } else{}
             *get_value(&vars_float, "lep2_reco_weight")          = lep2_reco_weights.nominal;
@@ -1968,6 +1977,7 @@ void DemoAnalyzer::ReportPostTerminate()
     auto ascii_file = fopen("ascii_thoth.txt", "w");
     fprintf(ascii_file, ascii.c_str());
     fclose(ascii_file);
+    
     //TKGfile.header.notes = construct_note(sdf_notes);
     //strcat(TKGfile.header.notes.characters, "TOTAL:");
     //strcat(TKGfile.header.notes.characters, std::to_string(this->totalEvents).c_str());

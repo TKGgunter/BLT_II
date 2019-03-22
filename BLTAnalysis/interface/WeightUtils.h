@@ -56,6 +56,7 @@ class WeightUtils {
 				//Electron weights
         WeightAndSigma  GetElectronTriggerEff(TLorentzVector);
         WeightAndSigma  GetElectronRecoEff(TLorentzVector) const;
+        WeightAndSigma  GetElectronTightRecoEff(TLorentzVector);
 
 
 				WeightAndSigma GetBJetWeight(float pt, float eta, int flavor, float csv_score, float csv_cut);
@@ -112,6 +113,8 @@ class WeightUtils {
 				CSV _trigger_muonelectron_lowleg;
 
 				CSV _trigger_dilepton;
+
+				CSV _tight_electron;
 				
 };
 

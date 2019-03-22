@@ -1157,7 +1157,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                 
             }
             else if (leptonList[0].type_flag == ELECTRON){
-                lep1_reco_weights    = weights.GetElectronRecoEff(leptonList[0].p4());
+                lep1_reco_weights    = weights.GetElectronTightRecoEff(leptonList[0].p4());
                 lep1_trigger_weights = weights.GetElectronTriggerEff( leptonList[0].p4());
             } else{}
             *get_value(&vars_float, "lep1_reco_weight")          = lep1_reco_weights.nominal;
@@ -1188,7 +1188,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                 
             }
             else if (leptonList[1].type_flag == ELECTRON){
-                lep2_reco_weights    = weights.GetElectronRecoEff(leptonList[1].p4());
+                lep2_reco_weights    = weights.GetElectronTightRecoEff(leptonList[1].p4());
                 lep2_trigger_weights = weights.GetElectronTriggerEff(leptonList[1].p4() );
             } else{}
             *get_value(&vars_float, "lep2_reco_weight")          = lep2_reco_weights.nominal;
