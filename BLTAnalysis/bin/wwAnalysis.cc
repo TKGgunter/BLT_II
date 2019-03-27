@@ -61,8 +61,9 @@ std::string variables = "lep1_pt float;"
                         "genjet1_eta float;"
 
                         "pujet1_pt float;"
-                        "pujet1_phi float;"
                         "pujet1_eta float;"
+                        "pujet2_pt float;"
+                        "pujet2_eta float;"
 
                         "jet1_pt float;"
                         "jet2_pt float;"
@@ -132,12 +133,32 @@ std::string variables = "lep1_pt float;"
                         "numb_jets_scale_up int;" 
                         "numb_jets_scale_down int;" 
 
-                        "numb_jets_24 int;"  
-                        "numb_jets_24_res int;"  
-                        "numb_jets_24_scale_up int;" 
-                        "numb_jets_24_scale_down int;" 
+                        "numb_matched_jets int;"  
+                        "numb_matched_jets_res int;"  
+                        "numb_matched_jets_scale_up int;" 
+                        "numb_matched_jets_scale_down int;" 
+
+                        "numb_24_jets int;"  
+                        "numb_24_jets_res int;"  
+                        "numb_24_jets_scale_up int;" 
+                        "numb_24_jets_scale_down int;" 
+
+                        "numb_matched_24_jets int;"  
+                        "numb_matched_24_jets_res int;"  
+                        "numb_matched_24_jets_scale_up int;" 
+                        "numb_matched_24_jets_scale_down int;" 
+
+                        "numb_pu_jets int;"
 
                         "numb_genjets_24 int;"  
+                        "numb_genjets_50 int;"  
+
+                        "genjet1_pt float;"  
+                        "genjet2_pt float;"  
+                        "genjet3_pt float;"  
+                        "genjet1_eta float;"  
+                        "genjet2_eta float;"  
+                        "genjet3_eta float;"  
 
 
                         "numb_bjets int;"
@@ -155,6 +176,7 @@ std::string variables = "lep1_pt float;"
 
                 //** MET Variables begin here **//
 
+                        "trkmet float;"
                         "met float;"
                         "met_jetres float;"
                         "met_jetscale_up float;"
@@ -163,6 +185,7 @@ std::string variables = "lep1_pt float;"
                         "met_filterflag int;"
                         "met_filterflag_recommended int;"
                         "met_filterflag_recommended_old int;"
+                        "trkmet_proj float;"
                         "met_proj float;"
                         "met_proj_jetres float;"
                         "met_proj_jetscale_up float;"
@@ -911,6 +934,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
 
     //Do Jet stuff
     std::vector<TGPhysObject> jetList;
+    std::vector<TGPhysObject> puppijetList;
     {
         if(fAK4CHSArr){
             jetSelection( jetList, fAK4CHSArr, leptonList);
@@ -920,7 +944,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         } ELSE_PRINT("fAK4CHArr is not available.");
 
         if(fAK4PuppiArr){
+	          jetSelection( puppijetList, fAK4PuppiArr, leptonList);
+            tgSort(puppijetList);
+            tgCleanVector(puppijetList);
         } ELSE_PRINT("fAK4PUPPIArr is not available.");
+
     }
 
     //Do gen particle && gen jet stuff
@@ -929,8 +957,11 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     std::vector<TGPhysObject> ttbarList;
     std::vector<TGPhysObject> genLepList;
     std::vector<TGPhysObject> genNeutrinoList;
-    std::vector<TGPhysObject> genJetList;
+    std::vector<TGPhysObject> genjetList;
+    std::vector<TGPhysObject> genjet50List;
+    std::vector<TGPhysObject> genjet_xx_List;
 		*get_value(&vars_int,   "numb_genjets_24") = 0;
+		*get_value(&vars_int,   "numb_genjets_50") = 0;
     {
         if(fGenParticleArr){
             wwSelection( wwList, fGenParticleArr);
@@ -948,7 +979,9 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         if(fGenJetArr){
 
             if(fGenParticleArr)
-			          *get_value(&vars_int,   "numb_genjets_24") = genJetSelection(fGenParticleArr, fGenJetArr, 30.0, 2.4, genJetList);
+			          *get_value(&vars_int,   "numb_genjets_24") = genJetSelection(fGenParticleArr, fGenJetArr, 30.0, 2.4, genjetList);
+			          *get_value(&vars_int,   "numb_genjets_50") = genJetSelection(fGenParticleArr, fGenJetArr, 30.0, 5.0, genjet50List);
+			          genJetSelection(fGenParticleArr, fGenJetArr, 1.0, 5.0, genjet_xx_List);
 
         } ELSE_PRINT("fGenJetArr is not available.");
 
@@ -1016,6 +1049,7 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
     //NOTE
     //setting MET Vars
     *get_value(&vars_float, "met")            = fInfo->pfMET;
+    *get_value(&vars_float, "trkmet")            = fInfo->trkMET;
     *get_value(&vars_float, "met_phi")        = fInfo->pfMETphi;
     *get_value(&vars_int,   "met_filterflag") = fInfo->metFilterFailBits;
     {//Determine if event passes met filter flag selection cuts
@@ -1057,18 +1091,27 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         float dphi_lep1_met = fabs( deltaPhi(leptonList[0].phi() - fInfo->pfMETphi));
         float dphi_lep2_met = fabs( deltaPhi(leptonList[1].phi() - fInfo->pfMETphi));
         float dphi_l_met    = ( dphi_lep1_met < dphi_lep2_met ) ? dphi_lep1_met : dphi_lep2_met;
+
+        float dphi_lep1_trkmet = fabs( deltaPhi(leptonList[0].phi() - fInfo->trkMETphi));
+        float dphi_lep2_trkmet = fabs( deltaPhi(leptonList[1].phi() - fInfo->trkMETphi));
+        float dphi_l_trkmet    = ( dphi_lep1_trkmet < dphi_lep2_trkmet ) ? dphi_lep1_trkmet : dphi_lep2_trkmet;
+
         float met_proj = 0.0;
+        float trkmet_proj = 0.0;
 
         if( fabs(dphi_l_met) < M_PI/2. ){
 
             met_proj =  fabs(sin(dphi_l_met)*fInfo->pfMET);
+            trkmet_proj =  fabs(sin(dphi_l_trkmet)*fInfo->trkMET);
         } else{
 
             met_proj = fInfo->pfMET;
         }
         *get_value(&vars_float, "met_proj") = met_proj;
+        *get_value(&vars_float, "trkmet_proj") = trkmet_proj;
     } else{
         *get_value(&vars_float, "met_proj") = fInfo->pfMET;
+        *get_value(&vars_float, "trkmet_proj") = fInfo->trkMET;
     }
     *get_value(&vars_float, "met_over_sET") = leptonList.size() >= 2 ? fInfo->pfMET / sqrt( pow(leptonList[0].p4().Et(),2.) + pow(leptonList[1].p4().Et(),2.) ): -999.99 ; 
 
@@ -1466,10 +1509,20 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         int number_jets_scale_up = 0;
         int number_jets_scale_down = 0;
 
-        int number_jets_24 = 0;
-        int number_jets_24_res = 0;
-        int number_jets_24_scale_up = 0;
-        int number_jets_24_scale_down = 0;
+        int number_matched_jets = 0;
+        int number_matched_jets_res = 0;
+        int number_matched_jets_scale_up = 0;
+        int number_matched_jets_scale_down = 0;
+
+        int number_24_jets = 0;
+        int number_24_jets_res = 0;
+        int number_24_jets_scale_up = 0;
+        int number_24_jets_scale_down = 0;
+
+        int number_matched_24_jets = 0;
+        int number_matched_24_jets_res = 0;
+        int number_matched_24_jets_scale_up = 0;
+        int number_matched_24_jets_scale_down = 0;
 
         float HT                = 0.0;
         float HT_res            = 0.0;
@@ -1557,7 +1610,20 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                     if (i == 0) {} 
                     else  _recoil += jet->p4();
                     
-                    if (fabs(jet->eta()) < 2.4) number_jets_24 += 1;
+                    if (fabs(jet->eta()) < 2.4) number_24_jets += 1;
+
+                    //NOTE
+                    //This is new genjet stuffs
+				            FOR_IN(genjet, genjet_xx_List){
+					              float reco_gen_dr = dR(genjet->phi(), jet->phi(), genjet->eta(), jet->eta());
+					              if (reco_gen_dr < 0.4) {
+						                number_matched_jets += 1;
+						                if (fabs(jet->eta()) < 2.4 && fabs(genjet->eta()) < 2.4) number_matched_24_jets += 1;
+                            break;
+                        }
+                    }
+
+
                 }
                 if( jet->pt()*_resolution_jet_pt_variation >= 30 ){
                     number_jets_res += 1;
@@ -1566,7 +1632,18 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                     if (i == 0) _recoil_res *= _resolution_jet_pt_variation;
                     else  _recoil_res += jet->p4()*_resolution_jet_pt_variation;
 
-                    if (fabs(jet->eta()) < 2.4) number_jets_24_res += 1;
+                    if (fabs(jet->eta()) < 2.4) number_24_jets_res += 1;
+                    
+                    //NOTE
+                    //This is new genjet stuffs
+				            FOR_IN(genjet, genjet_xx_List){
+					              float reco_gen_dr = dR(genjet->phi(), jet->phi(), genjet->eta(), jet->eta());
+					              if (reco_gen_dr < 0.4) {
+						                number_matched_jets_res += 1;
+						                if (fabs(jet->eta()) < 2.4 && fabs(genjet->eta()) < 2.4) number_matched_24_jets_res += 1;
+                            break;
+                        }
+                    }
                 }
                 if( jet->pt()*_scale_jet_pt_up >= 30 ){
                     number_jets_scale_up += 1;
@@ -1575,7 +1652,18 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                     if (i == 0) _recoil_scale_up *= _scale_jet_pt_up;
                     else  _recoil_scale_up += jet->p4()*_scale_jet_pt_up;
 
-                    if (fabs(jet->eta()) < 2.4) number_jets_24_scale_up += 1;
+                    if (fabs(jet->eta()) < 2.4) number_24_jets_scale_up += 1;
+                    
+                    //NOTE
+                    //This is new genjet stuffs
+				            FOR_IN(genjet, genjet_xx_List){
+					              float reco_gen_dr = dR(genjet->phi(), jet->phi(), genjet->eta(), jet->eta());
+					              if (reco_gen_dr < 0.4) {
+						                number_matched_jets_scale_up += 1;
+						                if (fabs(jet->eta()) < 2.4 && fabs(genjet->eta()) < 2.4) number_matched_24_jets_scale_up += 1;
+                            break;
+                        }
+                    }
                 }
                 if( jet->pt()*_scale_jet_pt_down >= 30 ){
                     number_jets_scale_down += 1;
@@ -1584,7 +1672,18 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
                     if (i == 0) _recoil_scale_down *= _scale_jet_pt_down;
                     else  _recoil_scale_down += jet->p4()*_scale_jet_pt_down;
 
-                    if (fabs(jet->eta()) < 2.4) number_jets_24_scale_down += 1;
+                    if (fabs(jet->eta()) < 2.4) number_24_jets_scale_down += 1;
+                    
+                    //NOTE
+                    //This is new genjet stuffs
+				            FOR_IN(genjet, genjet_xx_List){
+					              float reco_gen_dr = dR(genjet->phi(), jet->phi(), genjet->eta(), jet->eta());
+					              if (reco_gen_dr < 0.4) {
+						                number_matched_jets_scale_down += 1;
+						                if (fabs(jet->eta()) < 2.4 && fabs(genjet->eta()) < 2.4) number_matched_24_jets_scale_down += 1;
+                            break;
+                        }
+                    }
                 }
                 //NOTE
                 //0.8484 is the Mid working point for bjet identification using the cssv alg.
@@ -1617,10 +1716,20 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
         *get_value(&vars_int,   "numb_jets_scale_up")  = number_jets_scale_up;
         *get_value(&vars_int,   "numb_jets_scale_down")  = number_jets_scale_down;
 
-        *get_value(&vars_int,   "numb_jets_24")             = number_jets_24;
-        *get_value(&vars_int,   "numb_jets_24_res")         = number_jets_24_res;
-        *get_value(&vars_int,   "numb_jets_24_scale_up")    = number_jets_24_scale_up;
-        *get_value(&vars_int,   "numb_jets_24_scale_down")  = number_jets_24_scale_down;
+        *get_value(&vars_int,   "numb_matched_jets")             = number_matched_jets;
+        *get_value(&vars_int,   "numb_matched_jets_res")         = number_matched_jets_res;
+        *get_value(&vars_int,   "numb_matched_jets_scale_up")    = number_matched_jets_scale_up;
+        *get_value(&vars_int,   "numb_matched_jets_scale_down")  = number_matched_jets_scale_down;
+
+        *get_value(&vars_int,   "numb_24_jets")             = number_24_jets;
+        *get_value(&vars_int,   "numb_24_jets_res")         = number_24_jets_res;
+        *get_value(&vars_int,   "numb_24_jets_scale_up")    = number_24_jets_scale_up;
+        *get_value(&vars_int,   "numb_24_jets_scale_down")  = number_24_jets_scale_down;
+
+        *get_value(&vars_int,   "numb_matched_24_jets")             = number_matched_24_jets;
+        *get_value(&vars_int,   "numb_matched_24_jets_res")         = number_matched_24_jets_res;
+        *get_value(&vars_int,   "numb_matched_24_jets_scale_up")    = number_matched_24_jets_scale_up;
+        *get_value(&vars_int,   "numb_matched_24_jets_scale_down")  = number_matched_24_jets_scale_down;
 
         *get_value(&vars_int,   "numb_bjets")     = number_bjets;
         *get_value(&vars_int,   "numb_bjets_gen") = number_bjets_gen;
@@ -1808,7 +1917,43 @@ Bool_t DemoAnalyzer::Process(Long64_t entry)
              rf_gen_lep_types.Fill( genlep1 + genlep2 - 20 + _result );
     }
 
-
+    {//GenJet info
+        ENUMERATE_IN(i, jet, genjet_xx_List){
+            if( i+1 < 4){
+                {
+                    char buffer[10];
+                    sprintf(buffer, "genjet%i_pt", i+1); 
+                    *get_value(&vars_float, buffer) = jet->pt();
+                }
+                {
+                    char buffer[10];
+                    sprintf(buffer, "genjet%i_eta", i+1); 
+                    *get_value(&vars_float, buffer) = jet->eta();
+                }
+            }
+        }
+    }
+    {//Puppijets
+        int numb_pujets = 0;
+        ENUMERATE_IN(i, jet, puppijetList){
+            if( i+1 < 3){
+                {
+                    char buffer[10];
+                    sprintf(buffer, "pujet%i_pt", i+1); 
+                    *get_value(&vars_float, buffer) = jet->pt();
+                }
+                {
+                    char buffer[10];
+                    sprintf(buffer, "pujet%i_eta", i+1); 
+                    *get_value(&vars_float, buffer) = jet->eta();
+                }
+            }
+            if( jet->pt() > 30 && jet->eta() < 2.4){
+                numb_pujets += 1;
+            }
+        }
+        *get_value(&vars_int, "numb_pu_jets") = numb_pujets;
+    }
 
 
     _END_NTUPLE_LABEL: ;
